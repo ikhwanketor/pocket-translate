@@ -1,0 +1,60 @@
+# Nama workflow
+name: Deploy React App to GitHub Pages
+
+# Kapan workflow ini dijalankan
+on:
+  # Dijalankan setiap kali ada push ke branch 'main'
+  push:
+    branches:
+      - main
+  # Memungkinkan Anda menjalankan workflow ini secara manual dari tab Actions di GitHub
+  workflow_dispatch:
+
+# Izin yang diperlukan untuk workflow
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Pengaturan environment
+jobs:
+  # Job build dan deploy
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Mengambil kode dari repositori Anda
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # 2. Mengatur lingkungan Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18' # Gunakan versi Node.js yang sesuai
+          cache: 'npm'
+
+      # 3. Menginstal semua dependensi proyek
+      - name: Install dependencies
+        run: npm install
+
+      # 4. Menjalankan proses build untuk membuat file produksi
+      - name: Build
+        run: npm run build
+
+      # 5. Mengatur GitHub Pages untuk deployment
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+
+      # 6. Mengunggah hasil build sebagai artefak
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: './build' # atau './dist' tergantung konfigurasi build Anda
+
+      # 7. Men-deploy ke GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
