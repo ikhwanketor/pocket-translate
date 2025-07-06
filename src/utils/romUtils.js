@@ -31,6 +31,8 @@ export const detectSystem = (fileName, data) => {
     const systems = {
         nes: { name: detectedSystem || "NES", terminator: [0x00], encoding: "ascii" },
         snes: { name: detectedSystem || "SNES", terminator: [0x00], encoding: "ascii" },
+        smc: { name: detectedSystem || "SNES", terminator: [0x00], encoding: "ascii" },
+        sfc: { name: detectedSystem || "SNES", terminator: [0x00], encoding: "ascii" },
         gb: { name: detectedSystem || "Game Boy", terminator: [0x50, 0x00], encoding: "ascii" },
         gbc: { name: detectedSystem || "GBC", terminator: [0x50, 0x00], encoding: "ascii" },
         gba: { name: detectedSystem || "GBA", terminator: [0x00, 0xFF, 0xFD], encoding: "ascii" },
