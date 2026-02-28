@@ -27,7 +27,7 @@ No installations, no backend servers, no complex desktop setups. Everything runs
 Because PocketTranslate uses Web Workers and WebAssembly, it requires a local web server to bypass strict browser CORS policies. You cannot simply double-click the `index.html` file.
 
 ### Prerequisites
-* [Node.js](https://nodejs.org/) (for `http-server`) OR Python (built-in) OR VSCode.
+* [Node.js](https://nodejs.org/) 
 
 ### Installation Steps
 
@@ -35,20 +35,11 @@ Because PocketTranslate uses Web Workers and WebAssembly, it requires a local we
    ```bash
    git clone [https://github.com/ikhwanketor/pocket-translate.git](https://github.com/ikhwanketor/pocket-translate.git)
    cd pocket-translate
-
-    Serve the project locally:
-
-        Option A (VSCode - Recommended): Install the Live Server extension, right-click pockettranslate_improved15.html, and select "Open with Live Server".
-
-        Option B (Python): ```bash
-        python -m http.server 8000
-
-        Option C (Node.js): ```bash
-        npx http-server -p 8000
-
-
+   npm install
+   npm run / npm run dev
+        
     Open your browser:
-    Navigate to http://localhost:8000/pockettranslate_improved15.html
+    Navigate to http://127.0.0.1:3000/app/
 
 📖 How to Use
 
