@@ -1,0 +1,215 @@
+﻿:root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #040404;
+      color: #a2ffb8;
+      font: 13px/1.4 Consolas, "Courier New", monospace;
+    }
+    .wrap {
+      width: 100%;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 8px;
+      padding: 8px;
+    }
+    .panel {
+      border: 1px solid #1d7b3f;
+      background: #0a0a0a;
+      border-radius: 4px;
+      padding: 8px;
+      position: relative;
+    }
+    .panel-close {
+      position: absolute;
+      right: 8px;
+      top: 8px;
+      border: 1px solid #2d2d2d;
+      background: #0b0b0b;
+      color: #9ad79a;
+      border-radius: 4px;
+      width: 20px;
+      height: 20px;
+      line-height: 16px;
+      text-align: center;
+      cursor: pointer;
+      font: 12px/16px Consolas, "Courier New", monospace;
+      padding: 0;
+    }
+    .panel-close:hover {
+      border-color: #00ff41;
+      color: #00ff41;
+    }
+    .viewport {
+      border: 1px solid #2d2d2d;
+      border-radius: 4px;
+      background: #000;
+      position: relative;
+      min-height: 180px;
+      overflow: hidden;
+    }
+    .note {
+      color: #9ad79a;
+      white-space: pre-wrap;
+      font-size: 12px;
+    }
+    .warn { color: #ff8f8f; }
+    .emu-host {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      z-index: 2;
+    }
+    .emu-host.active { display: flex; }
+    .emu-stage {
+      width: 100%;
+      height: 100%;
+      min-height: 180px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #000;
+    }
+    .emu-stage > * {
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .emu-stage canvas,
+    .emu-stage video,
+    .emu-stage iframe {
+      display: block !important;
+      margin: 0 auto;
+      max-width: 100% !important;
+      max-height: 100% !important;
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: contain !important;
+      image-rendering: pixelated;
+    }
+    /* EmulatorJS menu hover containment */
+    #game #emulator_menu,
+    #game .ejs-menu,
+    #game .ejs_menu,
+    #game .ejs--menu,
+    #game [class*="ejs-menu-panel"],
+    #game [class*="ejs_menu_panel"] {
+      pointer-events: none !important;
+    }
+    #game .menu-btn,
+    #game .ejs-menu-btn,
+    #game .ejs_menu_btn,
+    #game .ejs--menu-btn,
+    #game #emulator_menu_btn {
+      pointer-events: auto !important;
+    }
+    #game.pt-menu-locked [id*="menu"]:not(.menu-btn):not(.ejs-menu-btn):not(.ejs_menu_btn),
+    #game.pt-menu-locked [class*="menu-panel"],
+    #game.pt-menu-locked [class*="menu_panel"],
+    #game.pt-menu-locked .ejs-menu,
+    #game.pt-menu-locked .ejs_menu {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    #game.pt-menu-locked.pt-menu-open [id*="menu"]:not(.menu-btn):not(.ejs-menu-btn):not(.ejs_menu_btn),
+    #game.pt-menu-locked.pt-menu-open [class*="menu-panel"],
+    #game.pt-menu-locked.pt-menu-open [class*="menu_panel"],
+    #game.pt-menu-locked.pt-menu-open .ejs-menu,
+    #game.pt-menu-locked.pt-menu-open .ejs_menu {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    body.pt-menu-locked-global [id*="menu"]:not(#emulator_menu_btn):not(.menu-btn):not(.ejs-menu-btn):not(.ejs_menu_btn),
+    body.pt-menu-locked-global [class*="menu-panel"],
+    body.pt-menu-locked-global [class*="menu_panel"],
+    body.pt-menu-locked-global .ejs-menu,
+    body.pt-menu-locked-global .ejs_menu {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    body.pt-menu-locked-global.pt-menu-open-global [id*="menu"]:not(#emulator_menu_btn):not(.menu-btn):not(.ejs-menu-btn):not(.ejs_menu_btn),
+    body.pt-menu-locked-global.pt-menu-open-global [class*="menu-panel"],
+    body.pt-menu-locked-global.pt-menu-open-global [class*="menu_panel"],
+    body.pt-menu-locked-global.pt-menu-open-global .ejs-menu,
+    body.pt-menu-locked-global.pt-menu-open-global .ejs_menu {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    #game.pt-menu-save-load-only [data-pt-menu-item="1"] {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    #game.pt-menu-save-load-only [data-pt-menu-item="1"][data-pt-keep="1"] {
+      display: flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    #game #emulator_menu_btn,
+    #game .menu-btn,
+    #game .ejs-menu-btn,
+    #game .ejs_menu_btn,
+    #game [class*="menu-btn"],
+    #game [class*="menu_btn"] {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+    #game [id*="menu"],
+    #game [class*="ejs-menu"],
+    #game [class*="ejs_menu"],
+    #game [class*="menu-panel"],
+    #game [class*="menu_panel"] {
+      pointer-events: none !important;
+    }
+    #game [data-pt-branding="1"] {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+    #game .ejs-watermark,
+    #game [class*="watermark"],
+    #game .ejs_message,
+    #game [class*="message"],
+    #game .ejs-mobile-controls,
+    #game [class*="mobile-controls"],
+    #game a[href*="emulatorjs"],
+    #game [aria-label*="EmulatorJS"] {
+      display: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    #game canvas {
+      display: block !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    .emu-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #9ad79a;
+      text-align: center;
+      padding: 16px;
+      font-size: 13px;
+      background: radial-gradient(circle at 18% 12%, #113922 0%, #050505 65%);
+      z-index: 1;
+    }
+    .emu-placeholder.hidden { display: none; }
