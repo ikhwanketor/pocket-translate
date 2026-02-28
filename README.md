@@ -38,8 +38,8 @@ Because PocketTranslate uses Web Workers and WebAssembly, it requires a local we
    npm install
    npm run / npm run dev
         
-    Open your browser:
-    Navigate to http://127.0.0.1:3000/app/
+   Open your browser:
+   Navigate to http://127.0.0.1:3000/app/
 
 📖 How to Use
 
@@ -68,4 +68,4 @@ Contributions, issues, and feature requests are welcome! If you are a reverse en
 
 This project is open-source and available under the MIT License.
 
-Created with ❤️ for the Retro Gaming and Translation Community by IkhwanKetor.
+Created with ❤️ for the Retro Gaming and Rom Hacking Community by IkhwanKetor.
