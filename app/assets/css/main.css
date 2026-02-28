@@ -1625,11 +1625,41 @@
         max-width: 100%;
       }
 
+      .workspace-main-panel.workspace-main-panel-active,
+      .workspace-main-panel.workspace-main-panel-empty {
+        overflow: visible;
+      }
+
       .translation-workspace-grid .panel-shell .panel-content,
       .translation-center-panel .panel-content,
       .translation-side-column .panel-content {
         height: auto;
         min-height: 0;
+      }
+
+      .translation-workspace-grid {
+        height: auto;
+        min-height: 0;
+      }
+
+      .translation-center-panel .workspace-scroll {
+        max-height: none;
+        overflow-y: visible;
+        overflow-x: hidden;
+      }
+
+      .translation-center-panel.minimized {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+      }
+
+      .translation-center-panel.minimized .panel-content {
+        display: flex !important;
+      }
+
+      .translation-center-panel.minimized .panel-min-wrap {
+        display: none;
       }
 
       .workspace-main-panel.workspace-main-panel-empty .workspace-empty-state {
@@ -1830,6 +1860,8 @@
 
       .translation-workspace-grid {
         grid-template-columns: 1fr;
+        height: auto;
+        min-height: 0;
       }
 
       .translation-toolbar-row {
@@ -1900,6 +1932,15 @@
         min-width: 0 !important;
         max-width: 100% !important;
         height: auto !important;
+      }
+
+      .translation-center-panel .workspace-scroll {
+        max-height: none;
+        overflow-y: visible;
+      }
+
+      .translation-center-panel.minimized .panel-content {
+        display: flex !important;
       }
 
       .panel-shell.minimized {

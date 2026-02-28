@@ -340,6 +340,14 @@
         };
       }, []);
 
+      useEffect(() => {
+        if (!isMobileLayout || activeTab !== 'extraction') return;
+        setPanelMinimized(prev => {
+          if (!prev['translation-center']) return prev;
+          return { ...prev, 'translation-center': false };
+        });
+      }, [isMobileLayout, activeTab]);
+
       const appendBootDiagnostic = useCallback((line) => {
         setBootDiagnostics(prev => {
           const next = [...prev, line];
