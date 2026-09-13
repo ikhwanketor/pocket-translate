@@ -86,6 +86,7 @@
     if (w.N64Workflow)      register(w.N64Workflow);
     if (w.PSPWorkflow)      register(w.PSPWorkflow);
     if (w.ThreeDSWorkflow)  register(w.ThreeDSWorkflow);
+    if (w.PCEWorkflow)      register(w.PCEWorkflow);
   }
 
   Ketor.workflows.register = register;
