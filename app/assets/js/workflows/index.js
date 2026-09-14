@@ -85,6 +85,7 @@
     if (w.PS1Workflow)      register(w.PS1Workflow);
     if (w.N64Workflow)      register(w.N64Workflow);
     if (w.PSPWorkflow)      register(w.PSPWorkflow);
+    if (w.SwitchWorkflow)   register(w.SwitchWorkflow);
     if (w.ThreeDSWorkflow)  register(w.ThreeDSWorkflow);
     if (w.PCEWorkflow)      register(w.PCEWorkflow);
   }
