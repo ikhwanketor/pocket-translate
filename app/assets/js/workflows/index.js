@@ -90,6 +90,7 @@
     if (w.PCWorkflow)       register(w.PCWorkflow);
     if (w.AndroidWorkflow)  register(w.AndroidWorkflow);
     if (w.IOSWorkflow)      register(w.IOSWorkflow);
+    if (w.J2MEWorkflow)     register(w.J2MEWorkflow);
     if (w.ThreeDSWorkflow)  register(w.ThreeDSWorkflow);
     if (w.PCEWorkflow)      register(w.PCEWorkflow);
   }
