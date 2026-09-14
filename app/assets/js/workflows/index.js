@@ -88,6 +88,8 @@
     if (w.SwitchWorkflow)   register(w.SwitchWorkflow);
     if (w.PS2Workflow)      register(w.PS2Workflow);
     if (w.PCWorkflow)       register(w.PCWorkflow);
+    if (w.AndroidWorkflow)  register(w.AndroidWorkflow);
+    if (w.IOSWorkflow)      register(w.IOSWorkflow);
     if (w.ThreeDSWorkflow)  register(w.ThreeDSWorkflow);
     if (w.PCEWorkflow)      register(w.PCEWorkflow);
   }
