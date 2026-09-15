@@ -1,75 +1,19 @@
 /* ============================================================
-   Ketor -- VS Code Workbench Layout
+   Ketor - Workbench Base Styles
    ------------------------------------------------------------
-   Parts-based layout matching VS Code:
-   TITLEBAR → MENUBAR → ACTIVITYBAR + SIDEBAR + EDITOR AREA
-   → PANEL → STATUSBAR
-
-   Uses CSS Grid with explicit grid-template-areas so that
-   any part can be collapsed to zero size.
-   ============================================================ */
-
-/* ============================================================
-   Ketor -- VS Code Workbench Layout (v2)
-   ------------------------------------------------------------
-   Grid-based parts layout. All sizes driven by CSS variables
-   on .kt-workbench root so dragging sidebar propagates to
-   editor + panel correctly.
-
-   Responsive:
-   - Desktop (> 1024px): activity left, sidebar, editor, panel
-   - Tablet (601–1024px): sidebar default collapsed
-   - Mobile (≤ 600px): activity bar at bottom, sidebar overlay
-   ============================================================ */
-
-/* ============================================================
-   Ketor -- Workbench Layout (v3)
-   ------------------------------------------------------------
-   Breakpoints:
-   - Desktop (> 1024px):   activity left, sidebar, editor, panel
-   - Tablet (601–1024px):  activity left, sidebar overlay drawer
-   - Mobile (≤ 600px):     activity left, sidebar overlay drawer,
-                           backdrop, tighter paddings
-
-   Sidebar drawer opens via .kt-workbench.mobile-sidebar-open.
-   Backdrop renders as sibling of sidebar (JS-driven).
-   ============================================================ */
-
-/* ============================================================
-   Ketor - Workbench Layout (v3.1)
-   ------------------------------------------------------------
-   Breakpoints:
-   - Desktop (> 1024px):   activity left, sidebar inline
-   - Tablet (601-1024px):  activity left, sidebar drawer overlay
-   - Mobile (<= 600px):    activity left, sidebar drawer overlay
-   Mobile/tablet redesign final in Batch 12g-2.
+   Shared styles for all viewports. No media queries.
+   Layout grid (columns / rows / areas) is defined per-viewport
+   in workbench-desktop.css, workbench-tablet.css,
+   workbench-mobile.css.
    ============================================================ */
 
 .kt-workbench {
   display: grid;
-  grid-template-columns: var(--kt-activitybar-width, 48px) var(--kt-sidebar-width, 300px) 1fr;
-  grid-template-rows: var(--kt-titlebar-height, 30px) 1fr var(--kt-statusbar-height, 22px);
-  grid-template-areas:
-    "titlebar    titlebar    titlebar"
-    "activitybar sidebar     editor"
-    "statusbar   statusbar   statusbar";
   height: 100vh;
   width: 100vw;
   overflow: hidden;
   background: var(--kt-editor-bg);
   position: relative;
-}
-
-.kt-workbench.no-activitybar {
-  grid-template-columns: 0 var(--kt-sidebar-width, 300px) 1fr;
-}
-
-.kt-workbench.no-sidebar {
-  grid-template-columns: var(--kt-activitybar-width, 48px) 0 1fr;
-}
-
-.kt-workbench.no-activitybar.no-sidebar {
-  grid-template-columns: 0 0 1fr;
 }
 
 /* ---- Title Bar ---- */
@@ -221,7 +165,24 @@
   margin: 4px 0;
 }
 
-/* ---- Activity Bar ---- */
+.kt-dropdown-section {
+  padding: 6px 12px 4px 12px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--kt-input-placeholder-fg);
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kt-dropdown-section:hover {
+  color: var(--kt-menu-fg);
+}
+
+/* ---- Activity Bar (vertical, base) ---- */
 .kt-activitybar {
   grid-area: activitybar;
   background: var(--kt-activitybar-bg);
@@ -410,7 +371,7 @@
 .kt-sidebar-resize-handle:hover,
 .kt-sidebar-resize-handle.dragging { background: var(--kt-focus-border); }
 
-/* ---- Sidebar Backdrop (mobile/tablet drawer) ---- */
+/* ---- Sidebar Backdrop (hidden by default, used in tablet/mobile) ---- */
 .kt-sidebar-backdrop {
   display: none;
   position: fixed;
@@ -651,7 +612,7 @@
 
 .kt-editor-empty .ketor-hint .hb { opacity: 0.65; }
 
-/* ---- Activity Placeholder (tabs Translate / Hex Editor / etc.) ---- */
+/* ---- Activity Placeholder (tabs Translate / Hex / Font / etc.) ---- */
 .kt-activity-placeholder {
   display: flex;
   flex-direction: column;
@@ -678,7 +639,7 @@
   opacity: 0.55;
 }
 
-/* ---- Panel ---- */
+/* ---- Panel (bottom) ---- */
 .kt-panel-container {
   display: flex;
   flex-direction: column;
@@ -836,189 +797,3 @@
 .kt-theme-swatch.dark-high-contrast { background: #000; border-color: #6fc3df; }
 .kt-theme-swatch.light-plus { background: #ffffff; }
 .kt-theme-swatch.light-ketor { background: #faf6ec; }
-
-/* ---- Modal ---- */
-.kt-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--kt-z-modal);
-  padding: 16px;
-}
-
-.kt-modal {
-  background: var(--kt-widget-bg);
-  color: var(--kt-widget-fg);
-  border: 1px solid var(--kt-widget-border-default);
-  border-radius: 4px;
-  min-width: 400px;
-  max-width: 90vw;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 4px 16px var(--kt-widget-shadow);
-}
-
-.kt-modal-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--kt-widget-border-default);
-  font-size: 14px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.kt-modal-body {
-  padding: 16px;
-  overflow: auto;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.kt-modal-footer {
-  padding: 12px 16px;
-  border-top: 1px solid var(--kt-widget-border-default);
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-/* ============================================================
-   TABLET (601-1024px)
-   Sidebar as drawer overlay.
-   ============================================================ */
-@media (min-width: 601px) and (max-width: 1024px) {
-  .kt-workbench {
-    grid-template-columns: var(--kt-activitybar-width, 48px) 1fr;
-    grid-template-areas:
-      "titlebar    titlebar"
-      "activitybar editor"
-      "statusbar   statusbar";
-  }
-
-  .kt-workbench.no-activitybar {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "titlebar"
-      "editor"
-      "statusbar";
-  }
-
-  .kt-sidebar {
-    position: fixed;
-    top: var(--kt-titlebar-height, 30px);
-    left: var(--kt-activitybar-width, 48px);
-    bottom: var(--kt-statusbar-height, 22px);
-    width: 320px !important;
-    min-width: 320px !important;
-    max-width: 320px !important;
-    z-index: var(--kt-z-drawer);
-    transform: translateX(-110%);
-    transition: transform 0.2s ease;
-    box-shadow: 6px 0 20px rgba(0, 0, 0, 0.45);
-    pointer-events: none;
-  }
-
-  .kt-workbench.tablet-sidebar-open .kt-sidebar {
-    transform: translateX(0);
-    pointer-events: auto;
-  }
-
-  .kt-sidebar-backdrop {
-    display: block;
-  }
-
-  .kt-workbench.tablet-sidebar-open .kt-sidebar-backdrop {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .kt-sidebar-resize-handle { display: none; }
-}
-
-/* ============================================================
-   MOBILE (<= 600px)
-   ============================================================ */
-@media (max-width: 600px) {
-  .kt-workbench {
-    grid-template-columns: var(--kt-activitybar-width, 48px) 1fr;
-    grid-template-rows: auto 1fr auto;
-    grid-template-areas:
-      "titlebar    titlebar"
-      "activitybar editor"
-      "statusbar   statusbar";
-  }
-
-  .kt-workbench.no-activitybar {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "titlebar"
-      "editor"
-      "statusbar";
-  }
-
-  .kt-sidebar {
-    position: fixed;
-    top: var(--kt-titlebar-height, 30px);
-    left: var(--kt-activitybar-width, 48px);
-    bottom: var(--kt-statusbar-height, 22px);
-    width: calc(100vw - var(--kt-activitybar-width, 48px)) !important;
-    min-width: calc(100vw - var(--kt-activitybar-width, 48px)) !important;
-    max-width: calc(100vw - var(--kt-activitybar-width, 48px)) !important;
-    z-index: var(--kt-z-drawer);
-    transform: translateX(-110%);
-    transition: transform 0.22s cubic-bezier(0.2, 0, 0.2, 1);
-    box-shadow: 6px 0 24px rgba(0, 0, 0, 0.5);
-    pointer-events: none;
-  }
-
-  .kt-workbench.mobile-sidebar-open .kt-sidebar {
-    transform: translateX(0);
-    pointer-events: auto;
-  }
-
-  .kt-sidebar-backdrop {
-    display: block;
-  }
-
-  .kt-workbench.mobile-sidebar-open .kt-sidebar-backdrop {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .kt-sidebar-resize-handle { display: none; }
-
-  .kt-titlebar { padding-left: 0; }
-  .kt-menubar { padding: 0 2px; }
-  .kt-menubar-item { padding: 6px 8px; font-size: 12px; }
-  .kt-titlebar-title { display: none; }
-
-  .kt-activity-item { width: 48px; height: 44px; }
-
-  .kt-tabbar { height: 34px; min-height: 34px; }
-  .kt-tab { padding: 0 4px 0 8px; min-width: 60px; max-width: 140px; }
-  .kt-tab .tab-label { font-size: 11px; }
-
-  .kt-panel-container { max-height: 55vh; }
-
-  .kt-statusbar { font-size: 10px; }
-  .kt-statusbar-item { padding: 0 4px; }
-
-  .kt-editor-empty { padding: 24px 16px; }
-  .kt-editor-empty .ketor-mark { font-size: 22px; letter-spacing: 0.12em; }
-  .kt-editor-empty .ketor-sub { font-size: 11px; margin-bottom: 20px; padding: 0 12px; }
-  .kt-editor-empty .ketor-actions { margin-bottom: 24px; gap: 6px; }
-  .kt-editor-empty .ketor-hints { grid-template-columns: 1fr; }
-  .kt-editor-empty .ketor-hint { padding: 12px; }
-}
-
-@media (max-width: 900px) and (max-height: 500px) {
-  .kt-editor-empty { padding: 12px; }
-  .kt-editor-empty .ketor-hints { display: none; }
-  .kt-editor-empty .ketor-sub { margin-bottom: 12px; }
-  .kt-editor-empty .ketor-actions { margin-bottom: 12px; }
-}

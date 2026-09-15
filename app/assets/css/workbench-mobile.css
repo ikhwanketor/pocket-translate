@@ -1,0 +1,94 @@
+/* ============================================================
+   Ketor - Workbench Mobile Layout
+   ------------------------------------------------------------
+   Applies at max-width 600px.
+   Sidebar becomes overlay drawer. Compact spacing.
+   Mobile redesign (bottom activity bar + kebab) in Batch 12g-2b.
+   ============================================================ */
+
+@media (max-width: 600px) {
+  .kt-workbench {
+    grid-template-columns: var(--kt-activitybar-width, 48px) 1fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "titlebar    titlebar"
+      "activitybar editor"
+      "statusbar   statusbar";
+  }
+
+  .kt-workbench.no-activitybar {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "titlebar"
+      "editor"
+      "statusbar";
+  }
+
+  .kt-sidebar {
+    position: fixed;
+    top: var(--kt-titlebar-height, 30px);
+    left: var(--kt-activitybar-width, 48px);
+    bottom: var(--kt-statusbar-height, 22px);
+    width: calc(100vw - var(--kt-activitybar-width, 48px)) !important;
+    min-width: calc(100vw - var(--kt-activitybar-width, 48px)) !important;
+    max-width: calc(100vw - var(--kt-activitybar-width, 48px)) !important;
+    z-index: var(--kt-z-drawer);
+    transform: translateX(-110%);
+    transition: transform 0.22s cubic-bezier(0.2, 0, 0.2, 1);
+    box-shadow: 6px 0 24px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+  }
+
+  .kt-workbench.mobile-sidebar-open .kt-sidebar {
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+
+  .kt-sidebar-backdrop {
+    display: block;
+  }
+
+  .kt-workbench.mobile-sidebar-open .kt-sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .kt-sidebar-resize-handle { display: none; }
+
+  /* Title bar compact */
+  .kt-titlebar { padding-left: 0; }
+  .kt-menubar { padding: 0 2px; }
+  .kt-menubar-item { padding: 6px 8px; font-size: 12px; }
+  .kt-titlebar-title { display: none; }
+
+  /* Activity bar tighter */
+  .kt-activity-item { width: 48px; height: 44px; }
+
+  /* Editor tabs compact */
+  .kt-tabbar { height: 34px; min-height: 34px; }
+  .kt-tab { padding: 0 4px 0 8px; min-width: 60px; max-width: 140px; }
+  .kt-tab .tab-label { font-size: 11px; }
+
+  /* Panel becomes bottom sheet (max height) */
+  .kt-panel-container { max-height: 55vh; }
+
+  /* Status bar compact */
+  .kt-statusbar { font-size: 10px; }
+  .kt-statusbar-item { padding: 0 4px; }
+
+  /* Welcome compact */
+  .kt-editor-empty { padding: 24px 16px; }
+  .kt-editor-empty .ketor-mark { font-size: 22px; letter-spacing: 0.12em; }
+  .kt-editor-empty .ketor-sub { font-size: 11px; margin-bottom: 20px; padding: 0 12px; }
+  .kt-editor-empty .ketor-actions { margin-bottom: 24px; gap: 6px; }
+  .kt-editor-empty .ketor-hints { grid-template-columns: 1fr; }
+  .kt-editor-empty .ketor-hint { padding: 12px; }
+}
+
+/* Landscape phone - hide welcome hints */
+@media (max-width: 900px) and (max-height: 500px) {
+  .kt-editor-empty { padding: 12px; }
+  .kt-editor-empty .ketor-hints { display: none; }
+  .kt-editor-empty .ketor-sub { margin-bottom: 12px; }
+  .kt-editor-empty .ketor-actions { margin-bottom: 12px; }
+}
