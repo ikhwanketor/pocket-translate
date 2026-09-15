@@ -12,55 +12,73 @@
    - KetorWelcome -- welcome screen when no tabs are open
    ============================================================ */
 
+/* ============================================================
+   Ketor -- Editor Area (v2)
+   ------------------------------------------------------------
+   Adds tab drag & drop between groups. Visual drop indicator.
+   Welcome screen: minimal KETOR branding + start actions +
+   6 compact hints. No verbose marketing text.
+   ============================================================ */
+
 (function (global) {
   'use strict';
 
   var Ketor = global.Ketor = global.Ketor || {};
   Ketor.ui = Ketor.ui || {};
-
   var React = global.React;
   if (!React) return;
   var e = React.createElement;
+  var useState = React.useState;
   var useCallback = React.useCallback;
+  var useRef = React.useRef;
   var memo = React.memo;
 
   /* ============================================================
-     KetorTab
+     KetorTab (draggable)
      ============================================================ */
   function KetorTab(props) {
     var tab = props.tab;
     var isActive = props.isActive;
-    var dirty = !!tab.dirty;
+    var groupId = props.groupId;
+    var [dragging, setDragging] = useState(false);
 
-    var handleClick = useCallback(function () {
-      props.onActivate(tab.id);
-    }, [tab.id, props.onActivate]);
+    var handleDragStart = useCallback(function (ev) {
+      try {
+        ev.dataTransfer.effectAllowed = 'move';
+        ev.dataTransfer.setData('application/x-ketor-tab', JSON.stringify({
+          groupId: groupId,
+          tabId: tab.id
+        }));
+      } catch (_) { }
+      setDragging(true);
+    }, [groupId, tab.id]);
+
+    var handleDragEnd = useCallback(function () { setDragging(false); }, []);
 
     var handleClose = useCallback(function (ev) {
       ev.stopPropagation();
       props.onClose(tab.id);
     }, [tab.id, props.onClose]);
 
-    var handleAuxClick = useCallback(function (ev) {
-      if (ev.button === 1) {
-        ev.preventDefault();
-        props.onClose(tab.id);
-      }
+    var handleAux = useCallback(function (ev) {
+      if (ev.button === 1) { ev.preventDefault(); props.onClose(tab.id); }
     }, [tab.id, props.onClose]);
 
     return e('div', {
       className: 'kt-tab' +
         (isActive ? ' active' : '') +
-        (dirty ? ' dirty' : ''),
-      onClick: handleClick,
-      onAuxClick: handleAuxClick,
+        (tab.dirty ? ' dirty' : '') +
+        (dragging ? ' dragging' : ''),
+      draggable: true,
+      onDragStart: handleDragStart,
+      onDragEnd: handleDragEnd,
+      onClick: function () { props.onActivate(tab.id); },
+      onAuxClick: handleAux,
       role: 'tab',
       'aria-selected': isActive,
       title: tab.tooltip || tab.title
     },
-      tab.icon
-        ? e('span', { className: 'tab-icon' }, Ketor.ui.icon(tab.icon, { size: 14 }))
-        : null,
+      tab.icon ? e('span', { className: 'tab-icon' }, Ketor.ui.icon(tab.icon, { size: 14 })) : null,
       e('span', { className: 'tab-label' }, tab.title),
       e('button', {
         type: 'button',
@@ -75,42 +93,125 @@
   var MemoTab = memo(KetorTab);
 
   /* ============================================================
-     KetorEditorGroup
+     Welcome (minimal, compact)
+     ============================================================ */
+  function KetorWelcome(props) {
+    var onAction = props.onAction || function () { };
+
+    var actions = [
+      { id: 'load-rom', label: 'Load ROM' },
+      { id: 'open-project', label: 'Open Project' },
+      { id: 'recent-files', label: 'Recent Files' }
+    ];
+
+    var hints = [
+      { icon: 'globe', title: 'Translate', body: 'Extract text with a .tbl, edit, auto-relocate overflow, rebuild.' },
+      { icon: 'hex', title: 'Hex Editor', body: 'Byte inspection, sections, pointers, Monkey-Moore relative search.' },
+      { icon: 'paintcan', title: 'Font & Graphics', body: 'Auto-detect font tiles, edit pixels, manage palettes.' },
+      { icon: 'package', title: 'Patch & Export', body: 'Generate IPS, export modified ROM, project import/export.' },
+      { icon: 'beaker', title: 'Tests', body: 'Unit tests and preview pipeline checks per workflow.' },
+      { icon: 'wand', title: 'Translation APIs', body: 'MyMemory → Google → LibreTranslate → Apertium. Custom keys supported.' }
+    ];
+
+    return e('div', { className: 'kt-editor-empty' },
+      e('div', { className: 'ketor-mark' }, 'KETOR'),
+      e('div', { className: 'ketor-sub' }, 'Kernel Engine Translation for Old & Retro Games'),
+      e('div', { className: 'ketor-actions' },
+        actions.map(function (a) {
+          return e('button', {
+            key: a.id,
+            type: 'button',
+            className: 'kt-btn',
+            onClick: function () { onAction(a.id); }
+          }, a.label);
+        })
+      ),
+      e('div', { className: 'ketor-hints' },
+        hints.map(function (h) {
+          return e('div', { key: h.title, className: 'ketor-hint' },
+            e('div', { className: 'hh' },
+              Ketor.ui.icon(h.icon, { size: 14 }),
+              e('span', null, h.title)
+            ),
+            e('div', { className: 'hb' }, h.body)
+          );
+        })
+      )
+    );
+  }
+
+  /* ============================================================
+     KetorEditorGroup (drop target)
      ============================================================ */
   function KetorEditorGroup(props) {
     var group = props.group;
     var isActiveGroup = props.isActiveGroup;
-    var renderTabContent = props.renderTabContent || function () { return null; };
+    var renderTabContent = props.renderTabContent;
     var onActivateTab = props.onActivateTab;
     var onCloseTab = props.onCloseTab;
     var onSplit = props.onSplit;
     var onCloseGroup = props.onCloseGroup;
+    var onTabDrop = props.onTabDrop;
     var canCloseGroup = props.canCloseGroup;
+
+    var [isDropTarget, setIsDropTarget] = useState(false);
+    var [dropIndex, setDropIndex] = useState(-1);
+    var tabbarRef = useRef(null);
 
     var activeTab = null;
     if (group.activeTabId) {
       activeTab = group.tabs.find(function (t) { return t.id === group.activeTabId; }) || null;
     }
 
-    var handleSplit = useCallback(function (ev) {
-      ev.stopPropagation();
-      if (typeof onSplit === 'function') onSplit();
-    }, [onSplit]);
+    var handleDragOver = useCallback(function (ev) {
+      ev.preventDefault();
+      try { ev.dataTransfer.dropEffect = 'move'; } catch (_) { }
+      setIsDropTarget(true);
+      var tabbarEl = tabbarRef.current;
+      if (!tabbarEl) return;
+      var x = ev.clientX;
+      var children = Array.prototype.slice.call(tabbarEl.querySelectorAll('.kt-tab'));
+      var idx = children.length;
+      for (var i = 0; i < children.length; i++) {
+        var r = children[i].getBoundingClientRect();
+        if (x < r.left + r.width / 2) { idx = i; break; }
+      }
+      setDropIndex(idx);
+    }, []);
 
-    var handleCloseGroup = useCallback(function (ev) {
-      ev.stopPropagation();
-      if (typeof onCloseGroup === 'function') onCloseGroup();
-    }, [onCloseGroup]);
+    var handleDragLeave = useCallback(function (ev) {
+      if (!ev.currentTarget.contains(ev.relatedTarget)) {
+        setIsDropTarget(false);
+        setDropIndex(-1);
+      }
+    }, []);
+
+    var handleDrop = useCallback(function (ev) {
+      ev.preventDefault();
+      setIsDropTarget(false);
+      var raw = '';
+      try { raw = ev.dataTransfer.getData('application/x-ketor-tab'); } catch (_) { }
+      setDropIndex(-1);
+      if (!raw) return;
+      var data = null;
+      try { data = JSON.parse(raw); } catch (_) { return; }
+      if (!data || !data.tabId) return;
+      onTabDrop(data.groupId, data.tabId, group.id, dropIndex < 0 ? group.tabs.length : dropIndex);
+    }, [group.id, group.tabs.length, dropIndex, onTabDrop]);
 
     return e('div', {
-      className: 'kt-editor-group',
-      'data-active': isActiveGroup ? 'true' : 'false'
+      className: 'kt-editor-group' + (isDropTarget ? ' drop-target' : ''),
+      'data-active': isActiveGroup ? 'true' : 'false',
+      onDragOver: handleDragOver,
+      onDragLeave: handleDragLeave,
+      onDrop: handleDrop
     },
-      e('div', { className: 'kt-tabbar' },
+      e('div', { className: 'kt-tabbar', ref: tabbarRef },
         group.tabs.map(function (tab) {
           return e(MemoTab, {
             key: tab.id,
             tab: tab,
+            groupId: group.id,
             isActive: group.activeTabId === tab.id,
             onActivate: function (tabId) { onActivateTab(group.id, tabId); },
             onClose: function (tabId) { onCloseTab(group.id, tabId); }
@@ -119,37 +220,25 @@
         e('div', { style: { flex: '1 1 auto', minWidth: 0 } }),
         e('button', {
           type: 'button',
-          className: 'icon-btn',
-          onClick: handleSplit,
+          onClick: function (ev) { ev.stopPropagation(); onSplit(); },
           title: 'Split Editor',
           style: {
-            width: '28px',
-            height: '100%',
-            background: 'transparent',
-            border: 'none',
-            color: 'inherit',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
+            width: '28px', height: '100%',
+            background: 'transparent', border: 'none',
+            color: 'inherit', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
           }
-        }, Ketor.ui.icon('split-horizontal', { size: 16 })),
+        }, Ketor.ui.icon('split-horizontal', { size: 14 })),
         canCloseGroup
           ? e('button', {
               type: 'button',
-              className: 'icon-btn',
-              onClick: handleCloseGroup,
+              onClick: function (ev) { ev.stopPropagation(); onCloseGroup(); },
               title: 'Close Group',
               style: {
-                width: '28px',
-                height: '100%',
-                background: 'transparent',
-                border: 'none',
-                color: 'inherit',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                width: '28px', height: '100%',
+                background: 'transparent', border: 'none',
+                color: 'inherit', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
               }
             }, Ketor.ui.icon('close', { size: 14 }))
           : null
@@ -157,100 +246,7 @@
       e('div', { className: 'kt-editor-content' },
         activeTab
           ? renderTabContent(activeTab, group)
-          : e(KetorWelcome, {
-              onAction: props.onWelcomeAction
-            })
-      )
-    );
-  }
-
-  /* ============================================================
-     KetorWelcome -- welcome screen for empty editor
-     ============================================================ */
-  function KetorWelcome(props) {
-    var onAction = props.onAction || function () { };
-
-    var actions = [
-      { id: 'load-rom', label: 'Load ROM', hint: 'Open a ROM file (.nes, .sfc, .gba, .nds, ...)' },
-      { id: 'open-project', label: 'Open Project', hint: 'Restore a saved .ketor project' },
-      { id: 'recent-files', label: 'Recent Files', hint: 'Resume from where you left off' }
-    ];
-
-    var walkthrough = [
-      { icon: 'globe', title: 'Translate', desc: 'Extract text with a .tbl table, edit translations, auto-relocate overflow with pointer updates.' },
-      { icon: 'file-binary', title: 'Hex Editor', desc: 'Byte-level inspection with sections, pointers, byte categories, and Monkey-Moore relative search.' },
-      { icon: 'paintcan', title: 'Font & Graphics', desc: 'Auto-detect font tiles, edit pixels, manage palettes, per-console BPP presets.' },
-      { icon: 'package', title: 'Patch & Export', desc: 'Generate IPS patches, export modified ROM, import/export project state.' },
-      { icon: 'beaker', title: 'Tests', desc: 'Unit test suite plus preview pipeline checks. Validate every workflow before shipping.' },
-      { icon: 'wand', title: 'Free Translation', desc: 'MyMemory → Google (unofficial) → LibreTranslate → Apertium. Custom API keys supported.' }
-    ];
-
-    return e('div', { className: 'kt-editor-empty' },
-      e('div', { className: 'kt-editor-empty-title' }, 'Ketor'),
-      e('div', { className: 'kt-editor-empty-hint' },
-        'Open a ROM or project to start. Ketor runs entirely in your browser -- no uploads, no servers.'
-      ),
-      e('div', {
-        style: {
-          display: 'flex',
-          gap: '8px',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-          marginTop: '8px'
-        }
-      },
-        actions.map(function (a) {
-          return e('button', {
-            key: a.id,
-            type: 'button',
-            className: 'kt-btn',
-            onClick: function () { onAction(a.id); },
-            title: a.hint
-          }, a.label);
-        })
-      ),
-      e('div', {
-        style: {
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '12px',
-          marginTop: '32px',
-          maxWidth: '900px',
-          width: '100%'
-        }
-      },
-        walkthrough.map(function (w) {
-          return e('div', {
-            key: w.title,
-            style: {
-              border: '1px solid var(--kt-widget-border-default)',
-              borderRadius: '3px',
-              padding: '12px',
-              textAlign: 'left',
-              background: 'var(--kt-sidebar-bg)'
-            }
-          },
-            e('div', {
-              style: {
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginBottom: '6px',
-                color: 'var(--kt-editor-fg)'
-              }
-            },
-              Ketor.ui.icon(w.icon, { size: 18 }),
-              e('strong', { style: { fontSize: '13px' } }, w.title)
-            ),
-            e('div', {
-              style: {
-                fontSize: '11px',
-                opacity: 0.7,
-                lineHeight: 1.5
-              }
-            }, w.desc)
-          );
-        })
+          : e(KetorWelcome, { onAction: props.onWelcomeAction })
       )
     );
   }
@@ -260,14 +256,6 @@
      ============================================================ */
   function KetorEditorArea(props) {
     var groups = props.groups || [];
-    var activeGroupId = props.activeGroupId;
-    var renderTabContent = props.renderTabContent;
-    var onActivateTab = props.onActivateTab || function () { };
-    var onCloseTab = props.onCloseTab || function () { };
-    var onSplit = props.onSplit || function () { };
-    var onCloseGroup = props.onCloseGroup || function () { };
-    var onWelcomeAction = props.onWelcomeAction || function () { };
-
     var canCloseGroup = groups.length > 1;
 
     return e('div', { className: 'kt-editor-groups' },
@@ -275,14 +263,15 @@
         return e(KetorEditorGroup, {
           key: group.id,
           group: group,
-          isActiveGroup: group.id === activeGroupId,
-          renderTabContent: renderTabContent,
-          onActivateTab: onActivateTab,
-          onCloseTab: onCloseTab,
-          onSplit: onSplit,
-          onCloseGroup: function () { onCloseGroup(group.id); },
+          isActiveGroup: group.id === props.activeGroupId,
+          renderTabContent: props.renderTabContent,
+          onActivateTab: props.onActivateTab,
+          onCloseTab: props.onCloseTab,
+          onSplit: props.onSplit,
+          onCloseGroup: function () { props.onCloseGroup(group.id); },
+          onTabDrop: props.onTabDrop,
           canCloseGroup: canCloseGroup,
-          onWelcomeAction: onWelcomeAction
+          onWelcomeAction: props.onWelcomeAction
         });
       })
     );

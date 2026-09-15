@@ -9,10 +9,23 @@
    any part can be collapsed to zero size.
    ============================================================ */
 
+/* ============================================================
+   Ketor -- VS Code Workbench Layout (v2)
+   ------------------------------------------------------------
+   Grid-based parts layout. All sizes driven by CSS variables
+   on .kt-workbench root so dragging sidebar propagates to
+   editor + panel correctly.
+
+   Responsive:
+   - Desktop (> 1024px): activity left, sidebar, editor, panel
+   - Tablet (601–1024px): sidebar default collapsed
+   - Mobile (≤ 600px): activity bar at bottom, sidebar overlay
+   ============================================================ */
+
 .kt-workbench {
   display: grid;
-  grid-template-columns: var(--kt-activitybar-width) var(--kt-sidebar-width, 300px) 1fr;
-  grid-template-rows: var(--kt-titlebar-height) 1fr var(--kt-statusbar-height);
+  grid-template-columns: var(--kt-activitybar-width, 48px) var(--kt-sidebar-width, 300px) 1fr;
+  grid-template-rows: var(--kt-titlebar-height, 30px) 1fr var(--kt-statusbar-height, 22px);
   grid-template-areas:
     "titlebar    titlebar    titlebar"
     "activitybar sidebar     editor"
@@ -21,21 +34,15 @@
   width: 100vw;
   overflow: hidden;
   background: var(--kt-editor-bg);
-}
-
-.kt-workbench.no-titlebar {
-  grid-template-rows: 1fr var(--kt-statusbar-height);
-  grid-template-areas:
-    "activitybar sidebar editor"
-    "statusbar   statusbar statusbar";
-}
-
-.kt-workbench.no-sidebar {
-  grid-template-columns: var(--kt-activitybar-width) 0 1fr;
+  transition: none;
 }
 
 .kt-workbench.no-activitybar {
   grid-template-columns: 0 var(--kt-sidebar-width, 300px) 1fr;
+}
+
+.kt-workbench.no-sidebar {
+  grid-template-columns: var(--kt-activitybar-width, 48px) 0 1fr;
 }
 
 .kt-workbench.no-activitybar.no-sidebar {
@@ -53,71 +60,66 @@
   font-size: var(--kt-font-size-small);
   user-select: none;
   -webkit-user-select: none;
-  padding: 0 8px;
-  gap: 4px;
+  padding: 0;
+  height: 100%;
   z-index: var(--kt-z-titlebar);
+  overflow: hidden;
 }
 
-.kt-titlebar.hidden {
-  display: none;
-}
-
-/* ---- Menu Bar (inside titlebar) ---- */
 .kt-menubar {
   display: flex;
   align-items: center;
-  gap: 0;
   height: 100%;
+  flex: 0 0 auto;
+  padding: 0 4px;
 }
 
 .kt-menubar-item {
   padding: 4px 8px;
+  height: 22px;
   cursor: pointer;
   color: var(--kt-titlebar-fg);
   font-size: var(--kt-font-size-small);
   border-radius: var(--kt-border-radius);
-  user-select: none;
-  -webkit-user-select: none;
   background: transparent;
   border: none;
   font-family: inherit;
+  white-space: nowrap;
 }
 
-.kt-menubar-item:hover {
-  background: var(--kt-menubar-selection-bg);
-  color: var(--kt-menubar-selection-fg);
-}
-
+.kt-menubar-item:hover,
 .kt-menubar-item.active {
   background: var(--kt-menubar-selection-bg);
   color: var(--kt-menubar-selection-fg);
 }
 
 .kt-titlebar-title {
-  flex: 1;
+  flex: 1 1 auto;
   text-align: center;
   color: var(--kt-titlebar-fg);
   font-size: var(--kt-font-size-small);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 0 16px;
+  padding: 0 12px;
+  min-width: 0;
 }
 
 .kt-titlebar-actions {
+  flex: 0 0 auto;
   display: flex;
-  gap: 4px;
-  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
 }
 
 /* ---- Dropdown Menu ---- */
 .kt-dropdown {
   position: absolute;
-  top: var(--kt-titlebar-height);
-  min-width: 200px;
+  top: var(--kt-titlebar-height, 30px);
+  min-width: 240px;
   background: var(--kt-menu-bg);
   color: var(--kt-menu-fg);
-  border: 1px solid var(--kt-widget-border);
+  border: 1px solid var(--kt-widget-border-default);
   box-shadow: 0 2px 8px var(--kt-widget-shadow);
   padding: 4px 0;
   z-index: var(--kt-z-dropdown);
@@ -125,10 +127,11 @@
 }
 
 .kt-dropdown-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  padding: 4px 16px 4px 24px;
+  gap: 4px;
+  padding: 4px 12px 4px 4px;
   cursor: pointer;
   color: var(--kt-menu-fg);
   background: transparent;
@@ -137,7 +140,8 @@
   text-align: left;
   font-family: inherit;
   font-size: inherit;
-  gap: 12px;
+  line-height: 1.6;
+  min-height: 22px;
 }
 
 .kt-dropdown-item:hover:not(:disabled) {
@@ -150,10 +154,36 @@
   cursor: not-allowed;
 }
 
+.kt-dropdown-check {
+  width: 20px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--kt-editor-fg);
+}
+
+.kt-dropdown-item:hover:not(:disabled) .kt-dropdown-check {
+  color: var(--kt-menu-selection-fg);
+}
+
+.kt-dropdown-label {
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .kt-dropdown-item .shortcut {
   color: var(--kt-input-placeholder-fg);
   font-size: var(--kt-font-size-small);
-  margin-left: auto;
+  white-space: nowrap;
+  margin-left: 24px;
+  text-align: right;
+}
+
+.kt-dropdown-item:hover:not(:disabled) .shortcut {
+  color: var(--kt-menu-selection-fg);
+  opacity: 0.8;
 }
 
 .kt-dropdown-separator {
@@ -162,28 +192,18 @@
   margin: 4px 0;
 }
 
-.kt-dropdown-check {
-  width: 16px;
-  display: inline-block;
-  margin-left: -16px;
-}
-
-/* ---- Activity Bar ---- */
+/* ---- Activity Bar (left) ---- */
 .kt-activitybar {
   grid-area: activitybar;
   background: var(--kt-activitybar-bg);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 4px;
+  padding: 4px 0;
   border-right: 1px solid var(--kt-activitybar-border);
+  overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
-  overflow: hidden;
-}
-
-.kt-activitybar.hidden {
-  display: none;
 }
 
 .kt-activity-item {
@@ -196,7 +216,7 @@
   color: var(--kt-activitybar-inactive-fg);
   border-left: 2px solid transparent;
   position: relative;
-  transition: color var(--kt-transition-fast);
+  transition: color 0.1s;
   background: transparent;
   border-top: none;
   border-right: none;
@@ -214,9 +234,8 @@
 }
 
 .kt-activity-item svg {
-  width: 24px;
-  height: 24px;
-  fill: currentColor;
+  width: 22px;
+  height: 22px;
   pointer-events: none;
 }
 
@@ -224,26 +243,24 @@
   position: absolute;
   bottom: 6px;
   right: 6px;
-  min-width: 16px;
-  height: 16px;
-  border-radius: 8px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
   background: var(--kt-activitybar-badge-bg);
   color: var(--kt-activitybar-badge-fg);
   font-size: 9px;
   font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  line-height: 1;
+  line-height: 14px;
+  text-align: center;
 }
 
 .kt-activitybar-bottom {
   margin-top: auto;
-  padding-bottom: 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-bottom: 4px;
 }
 
 /* ---- Sidebar ---- */
@@ -256,32 +273,30 @@
   overflow: hidden;
   border-right: 1px solid var(--kt-sidebar-border);
   min-width: 0;
-}
-
-.kt-sidebar.hidden {
-  display: none;
+  position: relative;
+  width: 100%;
 }
 
 .kt-sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px 8px 20px;
+  padding: 6px 8px 6px 20px;
   font-size: var(--kt-font-size-small);
-  font-weight: 400;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--kt-sidebar-title-fg);
   user-select: none;
   -webkit-user-select: none;
   flex: 0 0 auto;
+  min-height: 30px;
 }
 
 .kt-sidebar-header .actions {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   opacity: 0;
-  transition: opacity var(--kt-transition-fast);
+  transition: opacity 0.1s;
 }
 
 .kt-sidebar:hover .kt-sidebar-header .actions {
@@ -307,9 +322,8 @@
 }
 
 .kt-sidebar-header .icon-btn svg {
-  width: 16px;
-  height: 16px;
-  fill: currentColor;
+  width: 14px;
+  height: 14px;
 }
 
 .kt-sidebar-content {
@@ -326,7 +340,7 @@
 .kt-sidebar-section-header {
   display: flex;
   align-items: center;
-  padding: 4px 8px 4px 4px;
+  padding: 4px 4px 4px 6px;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
@@ -335,7 +349,7 @@
   color: var(--kt-sidebar-title-fg);
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  background: var(--kt-sidebar-section-header-bg);
+  background: transparent;
   border: none;
   width: 100%;
   text-align: left;
@@ -352,14 +366,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform var(--kt-transition-fast);
+  transition: transform 0.1s;
   flex: 0 0 auto;
 }
 
 .kt-sidebar-section-header .chevron svg {
   width: 12px;
   height: 12px;
-  fill: currentColor;
 }
 
 .kt-sidebar-section-header.collapsed .chevron {
@@ -367,7 +380,7 @@
 }
 
 .kt-sidebar-section-body {
-  padding: 4px 0 8px 0;
+  padding: 2px 0 8px 0;
   overflow: hidden;
 }
 
@@ -375,15 +388,31 @@
   display: none;
 }
 
-/* ---- Editor Area ---- */
-.kt-editor-area {
+.kt-sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 35;
+}
+
+.kt-sidebar-resize-handle:hover,
+.kt-sidebar-resize-handle.dragging {
+  background: var(--kt-focus-border);
+}
+
+/* ---- Editor Column ---- */
+.kt-editor-column {
   grid-area: editor;
-  background: var(--kt-editor-bg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
   min-height: 0;
+  background: var(--kt-editor-bg);
 }
 
 .kt-editor-groups {
@@ -402,16 +431,27 @@
   min-height: 0;
   overflow: hidden;
   background: var(--kt-editor-bg);
+  position: relative;
 }
 
 .kt-editor-group + .kt-editor-group {
   border-left: 1px solid var(--kt-panel-border);
 }
 
+.kt-editor-group.drop-target::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--kt-focus-border);
+  background: rgba(0, 127, 212, 0.08);
+  pointer-events: none;
+  z-index: 20;
+}
+
 /* ---- Tab Bar ---- */
 .kt-tabbar {
-  height: var(--kt-tabbar-height);
-  min-height: var(--kt-tabbar-height);
+  height: var(--kt-tabbar-height, 35px);
+  min-height: var(--kt-tabbar-height, 35px);
   background: var(--kt-tabs-bg);
   display: flex;
   align-items: stretch;
@@ -424,17 +464,15 @@
   border-bottom: 1px solid var(--kt-tabs-border);
 }
 
-.kt-tabbar::-webkit-scrollbar {
-  display: none;
-}
+.kt-tabbar::-webkit-scrollbar { display: none; }
 
 .kt-tab {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 8px 0 12px;
-  min-width: 100px;
-  max-width: 240px;
+  padding: 0 6px 0 12px;
+  min-width: 90px;
+  max-width: 220px;
   font-size: var(--kt-font-size-base);
   color: var(--kt-tab-inactive-fg);
   background: var(--kt-tab-inactive-bg);
@@ -445,11 +483,10 @@
   user-select: none;
   -webkit-user-select: none;
   flex: 0 0 auto;
+  transition: background 0.1s;
 }
 
-.kt-tab:hover {
-  background: var(--kt-tab-hover-bg);
-}
+.kt-tab:hover { background: var(--kt-tab-hover-bg); }
 
 .kt-tab.active {
   background: var(--kt-tab-active-bg);
@@ -459,43 +496,45 @@
 .kt-tab.active::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 0; left: 0; right: 0;
   height: 1px;
   background: var(--kt-tab-active-border-top, transparent);
 }
 
+.kt-tab.dragging {
+  opacity: 0.4;
+}
+
 .kt-tab .tab-icon {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
 }
 
 .kt-tab .tab-icon svg {
   width: 14px;
   height: 14px;
-  fill: currentColor;
 }
 
 .kt-tab .tab-label {
   flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 12px;
 }
 
 .kt-tab .tab-close {
-  width: var(--kt-tab-close-size);
-  height: var(--kt-tab-close-size);
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--kt-border-radius);
+  border-radius: 2px;
   opacity: 0;
-  transition: opacity var(--kt-transition-fast);
+  transition: opacity 0.1s;
   flex: 0 0 auto;
   background: transparent;
   border: none;
@@ -517,25 +556,23 @@
 .kt-tab .tab-close svg {
   width: 12px;
   height: 12px;
-  fill: currentColor;
 }
+
+.kt-tab.dirty .tab-close {
+  opacity: 1;
+}
+
+.kt-tab.dirty .tab-close svg { display: none; }
 
 .kt-tab.dirty .tab-close::before {
   content: '●';
   font-size: 12px;
+  line-height: 1;
 }
 
-.kt-tab.dirty:not(:hover) .tab-close svg {
-  display: none;
-}
+.kt-tab.dirty:hover .tab-close svg { display: block; }
 
-.kt-tab.dirty:not(:hover) .tab-close::before {
-  display: block;
-}
-
-.kt-tab:not(.dirty) .tab-close::before {
-  display: none;
-}
+.kt-tab.dirty:hover .tab-close::before { display: none; }
 
 /* ---- Editor Content ---- */
 .kt-editor-content {
@@ -545,31 +582,101 @@
   position: relative;
 }
 
-/* ---- Empty Editor (welcome) ---- */
 .kt-editor-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
+  padding: 40px 24px;
   color: var(--kt-input-placeholder-fg);
   text-align: center;
-  padding: 32px;
-  gap: 16px;
 }
 
-.kt-editor-empty .kt-editor-empty-title {
-  font-size: 24px;
+.kt-editor-empty .ketor-mark {
+  font-size: 32px;
+  font-weight: 300;
+  letter-spacing: 0.15em;
+  color: var(--kt-editor-fg);
+  opacity: 0.75;
+  margin-bottom: 6px;
+}
+
+.kt-editor-empty .ketor-sub {
+  font-size: 12px;
+  opacity: 0.55;
+  margin-bottom: 32px;
+  max-width: 420px;
+  line-height: 1.6;
+}
+
+.kt-editor-empty .ketor-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 40px;
+}
+
+.kt-editor-empty .ketor-hints {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1px;
+  max-width: 720px;
+  width: 100%;
+  border: 1px solid var(--kt-widget-border-default);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--kt-widget-border-default);
+}
+
+.kt-editor-empty .ketor-hint {
+  padding: 14px;
+  background: var(--kt-sidebar-bg);
+  text-align: left;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.kt-editor-empty .ketor-hint .hh {
+  color: var(--kt-editor-fg);
+  font-weight: 500;
+  margin-bottom: 4px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kt-editor-empty .ketor-hint .hb {
+  opacity: 0.65;
+}
+
+/* ---- Activity Placeholder ---- */
+.kt-activity-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--kt-input-placeholder-fg);
+}
+
+.kt-activity-placeholder .ap-title {
+  font-size: 18px;
   font-weight: 300;
   color: var(--kt-editor-fg);
-  opacity: 0.7;
+  opacity: 0.75;
+  margin-bottom: 8px;
 }
 
-.kt-editor-empty .kt-editor-empty-hint {
-  font-size: var(--kt-font-size-base);
-  opacity: 0.6;
+.kt-activity-placeholder .ap-hint {
+  font-size: 12px;
   max-width: 480px;
-  line-height: 1.6;
+  line-height: 1.65;
+  opacity: 0.55;
 }
 
 /* ---- Panel (bottom) ---- */
@@ -580,19 +687,32 @@
   border-top: 1px solid var(--kt-panel-border);
   overflow: hidden;
   flex: 0 0 auto;
+  position: relative;
 }
 
-.kt-panel-container.hidden {
-  display: none;
+.kt-panel-resize-handle {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  cursor: row-resize;
+  background: transparent;
+  z-index: 10;
+}
+
+.kt-panel-resize-handle:hover,
+.kt-panel-resize-handle.dragging {
+  background: var(--kt-focus-border);
 }
 
 .kt-panel-header {
   display: flex;
   align-items: center;
-  height: var(--kt-panel-header-height);
-  min-height: var(--kt-panel-header-height);
+  height: 32px;
+  min-height: 32px;
   padding: 0 8px;
-  gap: 4px;
+  gap: 2px;
   user-select: none;
   -webkit-user-select: none;
   flex: 0 0 auto;
@@ -600,7 +720,7 @@
 
 .kt-panel-tab {
   padding: 4px 8px;
-  font-size: var(--kt-font-size-small);
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--kt-panel-title-inactive-fg);
@@ -611,6 +731,9 @@
   border-left: none;
   border-right: none;
   font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .kt-panel-tab:hover {
@@ -622,9 +745,7 @@
   border-bottom-color: var(--kt-panel-tab-active-border);
 }
 
-.kt-panel-header .spacer {
-  flex: 1;
-}
+.kt-panel-header .spacer { flex: 1; }
 
 .kt-panel-header .icon-btn {
   width: 22px;
@@ -645,9 +766,8 @@
 }
 
 .kt-panel-header .icon-btn svg {
-  width: 16px;
-  height: 16px;
-  fill: currentColor;
+  width: 14px;
+  height: 14px;
 }
 
 .kt-panel-body {
@@ -655,7 +775,7 @@
   overflow: auto;
   padding: 4px 8px 8px 8px;
   font-family: var(--kt-font-mono);
-  font-size: var(--kt-font-size-code);
+  font-size: 12px;
   line-height: 1.5;
   color: var(--kt-panel-fg);
 }
@@ -663,23 +783,18 @@
 /* ---- Status Bar ---- */
 .kt-statusbar {
   grid-area: statusbar;
-  height: var(--kt-statusbar-height);
-  min-height: var(--kt-statusbar-height);
+  height: var(--kt-statusbar-height, 22px);
+  min-height: var(--kt-statusbar-height, 22px);
   background: var(--kt-statusbar-bg);
   color: var(--kt-statusbar-fg);
   display: flex;
   align-items: center;
   padding: 0 4px;
-  font-size: var(--kt-font-size-small);
+  font-size: 11px;
   user-select: none;
   -webkit-user-select: none;
-  border-top: 1px solid var(--kt-statusbar-border);
   gap: 0;
   overflow: hidden;
-}
-
-.kt-statusbar.hidden {
-  display: none;
 }
 
 .kt-statusbar-item {
@@ -706,59 +821,185 @@
 }
 
 .kt-statusbar-item svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
+  width: 12px;
+  height: 12px;
 }
 
-.kt-statusbar-spacer {
-  flex: 1;
+.kt-statusbar-spacer { flex: 1; }
+
+/* ---- Theme Picker ---- */
+.kt-theme-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-/* ---- Sash (resize handles) ---- */
-.kt-sash {
-  position: absolute;
-  z-index: var(--kt-z-sash);
-  background: transparent;
-  transition: background var(--kt-transition-fast);
+.kt-theme-picker label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--kt-widget-border-default);
+  border-radius: 3px;
+  cursor: pointer;
 }
 
-.kt-sash.vertical {
-  width: var(--kt-sash-width);
-  cursor: col-resize;
-  top: 0;
-  bottom: 0;
+.kt-theme-picker label:hover {
+  background: var(--kt-list-hover-bg);
 }
 
-.kt-sash.horizontal {
-  height: var(--kt-sash-width);
-  cursor: row-resize;
-  left: 0;
-  right: 0;
+.kt-theme-picker input[type="radio"] { margin: 0; }
+
+.kt-theme-swatch {
+  width: 40px;
+  height: 22px;
+  border: 1px solid var(--kt-widget-border-default);
+  border-radius: 2px;
+  display: inline-block;
+  flex: 0 0 auto;
 }
 
-.kt-sash:hover,
-.kt-sash.dragging {
-  background: var(--kt-focus-border);
-}
+.kt-theme-swatch.dark-plus { background: #1e1e1e; }
+.kt-theme-swatch.dark-modern { background: #1f1f1f; }
+.kt-theme-swatch.dark-high-contrast { background: #000; border-color: #6fc3df; }
 
-/* ---- Responsive ---- */
-@media (max-width: 768px) {
+/* ============================================================
+   Responsive
+   ============================================================ */
+
+/* ---- Tablet: sidebar default collapsed ---- */
+@media (max-width: 1024px) and (min-width: 601px) {
   .kt-workbench {
-    grid-template-columns: var(--kt-activitybar-width) 0 1fr;
+    grid-template-columns: var(--kt-activitybar-width, 48px) var(--kt-sidebar-width, 240px) 1fr;
+  }
+
+  .kt-workbench.no-sidebar,
+  .kt-workbench:not(.sidebar-open) {
+    grid-template-columns: var(--kt-activitybar-width, 48px) 0 1fr;
   }
 
   .kt-workbench.sidebar-open {
-    grid-template-columns: var(--kt-activitybar-width) 1fr 0;
+    grid-template-columns: var(--kt-activitybar-width, 48px) 240px 1fr;
+  }
+}
+
+/* ---- Mobile: activity bar bottom, sidebar overlay ---- */
+@media (max-width: 600px) {
+  .kt-workbench,
+  .kt-workbench.no-activitybar,
+  .kt-workbench.no-sidebar {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto auto;
+    grid-template-areas:
+      "titlebar"
+      "editor"
+      "activitybar"
+      "statusbar";
   }
 
-  .kt-workbench.sidebar-open .kt-sidebar {
-    position: absolute;
-    top: var(--kt-titlebar-height);
-    left: var(--kt-activitybar-width);
-    bottom: var(--kt-statusbar-height);
-    width: 280px;
-    z-index: 100;
-    box-shadow: 4px 0 12px var(--kt-widget-shadow);
+  .kt-workbench.no-titlebar {
+    grid-template-rows: 1fr auto auto;
+    grid-template-areas:
+      "editor"
+      "activitybar"
+      "statusbar";
+  }
+
+  /* Activity bar becomes bottom tab bar */
+  .kt-activitybar {
+    flex-direction: row;
+    justify-content: space-around;
+    padding: 0;
+    width: 100%;
+    height: 52px;
+    border-right: none;
+    border-top: 1px solid var(--kt-activitybar-border);
+  }
+
+  .kt-activity-item {
+    width: auto;
+    height: 52px;
+    flex: 1 1 0;
+    max-width: 64px;
+    border-left: none;
+    border-top: 2px solid transparent;
+  }
+
+  .kt-activity-item.active {
+    border-left-color: transparent;
+    border-top-color: var(--kt-activitybar-fg);
+  }
+
+  .kt-activitybar-bottom {
+    flex-direction: row;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-left: auto;
+  }
+
+  /* Sidebar becomes overlay */
+  .kt-sidebar {
+    position: fixed;
+    top: var(--kt-titlebar-height, 30px);
+    left: 0;
+    right: 0;
+    bottom: 74px;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+    z-index: 200;
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.55);
+    border-right: none;
+  }
+
+  .kt-sidebar-resize-handle { display: none; }
+
+  /* Titlebar horizontal scroll */
+  .kt-titlebar {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-left: 0;
+  }
+
+  .kt-menubar { padding: 0; }
+
+  .kt-menubar-item {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .kt-titlebar-title { display: none; }
+
+  /* Editor tabs compact */
+  .kt-tabbar {
+    height: 34px;
+    min-height: 34px;
+  }
+
+  .kt-tab {
+    padding: 0 4px 0 8px;
+    min-width: 70px;
+    max-width: 160px;
+  }
+
+  .kt-tab .tab-label { font-size: 11px; }
+
+  /* Panel becomes bottom sheet */
+  .kt-panel-container {
+    max-height: 60vh;
+  }
+
+  /* Statusbar compact */
+  .kt-statusbar { font-size: 10px; }
+
+  .kt-statusbar-item { padding: 0 4px; }
+
+  /* Welcome compact */
+  .kt-editor-empty { padding: 24px 16px; }
+  .kt-editor-empty .ketor-mark { font-size: 22px; }
+  .kt-editor-empty .ketor-sub { font-size: 11px; margin-bottom: 20px; }
+  .kt-editor-empty .ketor-actions { margin-bottom: 24px; }
+  .kt-editor-empty .ketor-hints {
+    grid-template-columns: 1fr;
   }
 }
