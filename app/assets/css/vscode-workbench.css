@@ -35,6 +35,16 @@
    Backdrop renders as sibling of sidebar (JS-driven).
    ============================================================ */
 
+/* ============================================================
+   Ketor - Workbench Layout (v3.1)
+   ------------------------------------------------------------
+   Breakpoints:
+   - Desktop (> 1024px):   activity left, sidebar inline
+   - Tablet (601-1024px):  activity left, sidebar drawer overlay
+   - Mobile (<= 600px):    activity left, sidebar drawer overlay
+   Mobile/tablet redesign final in Batch 12g-2.
+   ============================================================ */
+
 .kt-workbench {
   display: grid;
   grid-template-columns: var(--kt-activitybar-width, 48px) var(--kt-sidebar-width, 300px) 1fr;
@@ -556,7 +566,7 @@
 .kt-tab.dirty .tab-close svg { display: none; }
 
 .kt-tab.dirty .tab-close::before {
-  content: '●';
+  content: '\25CF';
   font-size: 12px;
   line-height: 1;
 }
@@ -611,18 +621,19 @@
 .kt-editor-empty .ketor-hints {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1px;
-  max-width: 720px;
+  gap: 12px;
+  max-width: 780px;
   width: 100%;
-  border: 1px solid var(--kt-widget-border-default);
-  border-radius: 3px;
-  overflow: hidden;
-  background: var(--kt-widget-border-default);
+  background: transparent;
+  border: none;
+  overflow: visible;
 }
 
 .kt-editor-empty .ketor-hint {
   padding: 14px;
   background: var(--kt-sidebar-bg);
+  border: 1px solid var(--kt-widget-border-default);
+  border-radius: 6px;
   text-align: left;
   font-size: 11px;
   line-height: 1.6;
@@ -640,7 +651,7 @@
 
 .kt-editor-empty .ketor-hint .hb { opacity: 0.65; }
 
-/* ---- Activity Placeholder ---- */
+/* ---- Activity Placeholder (tabs Translate / Hex Editor / etc.) ---- */
 .kt-activity-placeholder {
   display: flex;
   flex-direction: column;
@@ -826,9 +837,59 @@
 .kt-theme-swatch.light-plus { background: #ffffff; }
 .kt-theme-swatch.light-ketor { background: #faf6ec; }
 
+/* ---- Modal ---- */
+.kt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--kt-z-modal);
+  padding: 16px;
+}
+
+.kt-modal {
+  background: var(--kt-widget-bg);
+  color: var(--kt-widget-fg);
+  border: 1px solid var(--kt-widget-border-default);
+  border-radius: 4px;
+  min-width: 400px;
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 16px var(--kt-widget-shadow);
+}
+
+.kt-modal-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--kt-widget-border-default);
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kt-modal-body {
+  padding: 16px;
+  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.kt-modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--kt-widget-border-default);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 /* ============================================================
-   TABLET (601–1024px)
-   Sidebar as drawer overlay, activity bar stays left.
+   TABLET (601-1024px)
+   Sidebar as drawer overlay.
    ============================================================ */
 @media (min-width: 601px) and (max-width: 1024px) {
   .kt-workbench {
@@ -847,7 +908,6 @@
       "statusbar";
   }
 
-  /* Sidebar becomes fixed drawer */
   .kt-sidebar {
     position: fixed;
     top: var(--kt-titlebar-height, 30px);
@@ -881,8 +941,7 @@
 }
 
 /* ============================================================
-   MOBILE (≤ 600px)
-   Activity bar stays left (48px), sidebar drawer with backdrop.
+   MOBILE (<= 600px)
    ============================================================ */
 @media (max-width: 600px) {
   .kt-workbench {
@@ -902,7 +961,6 @@
       "statusbar";
   }
 
-  /* Sidebar drawer */
   .kt-sidebar {
     position: fixed;
     top: var(--kt-titlebar-height, 30px);
@@ -934,28 +992,22 @@
 
   .kt-sidebar-resize-handle { display: none; }
 
-  /* Title bar compact */
   .kt-titlebar { padding-left: 0; }
   .kt-menubar { padding: 0 2px; }
   .kt-menubar-item { padding: 6px 8px; font-size: 12px; }
   .kt-titlebar-title { display: none; }
 
-  /* Activity bar tighter */
   .kt-activity-item { width: 48px; height: 44px; }
 
-  /* Editor tabs compact */
   .kt-tabbar { height: 34px; min-height: 34px; }
   .kt-tab { padding: 0 4px 0 8px; min-width: 60px; max-width: 140px; }
   .kt-tab .tab-label { font-size: 11px; }
 
-  /* Panel as bottom sheet */
   .kt-panel-container { max-height: 55vh; }
 
-  /* Status bar compact */
   .kt-statusbar { font-size: 10px; }
   .kt-statusbar-item { padding: 0 4px; }
 
-  /* Welcome compact */
   .kt-editor-empty { padding: 24px 16px; }
   .kt-editor-empty .ketor-mark { font-size: 22px; letter-spacing: 0.12em; }
   .kt-editor-empty .ketor-sub { font-size: 11px; margin-bottom: 20px; padding: 0 12px; }
@@ -964,7 +1016,6 @@
   .kt-editor-empty .ketor-hint { padding: 12px; }
 }
 
-/* Landscape phone -- hide welcome hints */
 @media (max-width: 900px) and (max-height: 500px) {
   .kt-editor-empty { padding: 12px; }
   .kt-editor-empty .ketor-hints { display: none; }

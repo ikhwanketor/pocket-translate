@@ -10,6 +10,18 @@
    Applied via [data-ketor-theme] on <html>.
    ============================================================ */
 
+/* ============================================================
+   Ketor - Theme Variables (v2.1)
+   ------------------------------------------------------------
+   5 themes:
+   - dark-plus (VS Code Dark+ default)
+   - dark-modern (VS Code Dark Modern 1.84+)
+   - dark-high-contrast (VS Code Dark High Contrast)
+   - light-plus (VS Code Light+, activity bar forced light)
+   - light-ketor (custom warm cream)
+   Applied via [data-ketor-theme] on <html>.
+   ============================================================ */
+
 /* ---- Shared tokens ---- */
 :root {
   --kt-font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
@@ -43,7 +55,6 @@
   --kt-z-dropdown: 4000;
   --kt-z-modal: 5000;
 
-  /* Semantic colors that stay constant across themes */
   --kt-color-success: #4ec9b0;
   --kt-color-warning: #dcdcaa;
   --kt-color-error: #f44747;
@@ -132,6 +143,9 @@
   --kt-focus-border: #007fd4;
   --kt-widget-border-default: #454545;
   --kt-widget-shadow: #0000005c;
+
+  --kt-widget-bg: #252526;
+  --kt-widget-fg: #cccccc;
 
   --kt-scrollbar-slider-bg: #79797966;
   --kt-scrollbar-slider-hover-bg: #646464b3;
@@ -226,6 +240,9 @@
   --kt-widget-border-default: #313131;
   --kt-widget-shadow: #0000005c;
 
+  --kt-widget-bg: #1f1f1f;
+  --kt-widget-fg: #cccccc;
+
   --kt-scrollbar-slider-bg: #4e4e4e;
   --kt-scrollbar-slider-hover-bg: #5e5e5e;
   --kt-scrollbar-slider-active-bg: #6e6e6e;
@@ -319,6 +336,9 @@
   --kt-widget-border-default: #6fc3df;
   --kt-widget-shadow: #000000;
 
+  --kt-widget-bg: #000000;
+  --kt-widget-fg: #ffffff;
+
   --kt-scrollbar-slider-bg: #6fc3df;
   --kt-scrollbar-slider-hover-bg: #f38518;
   --kt-scrollbar-slider-active-bg: #ffffff;
@@ -332,7 +352,7 @@
 }
 
 /* ============================================================
-   LIGHT+ (VS Code Light+ exact)
+   LIGHT+ (VS Code Light+, activity bar forced light per user request)
    ============================================================ */
 [data-ketor-theme="light-plus"] {
   color-scheme: light;
@@ -341,10 +361,10 @@
   --kt-editor-fg: #333333;
   --kt-editor-selection: #add6ff;
 
-  --kt-activitybar-bg: #2c2c2c;
-  --kt-activitybar-fg: #ffffff;
-  --kt-activitybar-inactive-fg: #ffffff66;
-  --kt-activitybar-border: #00000000;
+  --kt-activitybar-bg: #f3f3f3;
+  --kt-activitybar-fg: #333333;
+  --kt-activitybar-inactive-fg: #616161;
+  --kt-activitybar-border: #e7e7e7;
   --kt-activitybar-badge-bg: #007acc;
   --kt-activitybar-badge-fg: #ffffff;
 
@@ -412,6 +432,9 @@
   --kt-widget-border-default: #cecece;
   --kt-widget-shadow: #00000029;
 
+  --kt-widget-bg: #ffffff;
+  --kt-widget-fg: #333333;
+
   --kt-scrollbar-slider-bg: #64646466;
   --kt-scrollbar-slider-hover-bg: #646464b3;
   --kt-scrollbar-slider-active-bg: #bfbfbf66;
@@ -427,6 +450,7 @@
 /* ============================================================
    LIGHT KETOR (custom warm cream)
    Comfortable for long editing sessions without pure white.
+   All tokens overridden so nothing falls back to dark values.
    ============================================================ */
 [data-ketor-theme="light-ketor"] {
   color-scheme: light;
@@ -435,10 +459,10 @@
   --kt-editor-fg: #3a3530;
   --kt-editor-selection: #e0d5b8;
 
-  --kt-activitybar-bg: #2c2c2c;
-  --kt-activitybar-fg: #f5eedb;
-  --kt-activitybar-inactive-fg: #f5eedb66;
-  --kt-activitybar-border: #00000000;
+  --kt-activitybar-bg: #f0ead8;
+  --kt-activitybar-fg: #3a3530;
+  --kt-activitybar-inactive-fg: #8a7a60;
+  --kt-activitybar-border: #e0d5b8;
   --kt-activitybar-badge-bg: #8a7359;
   --kt-activitybar-badge-fg: #ffffff;
 
@@ -451,19 +475,19 @@
   --kt-tabs-bg: #f0ead8;
   --kt-tabs-border: #e0d5b8;
   --kt-tab-active-bg: #faf6ec;
-  --kt-tab-active-active-fg: #3a3530;
+  --kt-tab-active-fg: #3a3530;
   --kt-tab-active-border-top: #8a7359;
-  --kt-tab-inactive-bg:-border #e8dfc8;
+  --kt-tab-inactive-bg: #e8dfc8;
   --kt-tab-inactive-fg: #6b5d4f;
-  --kt-tab-h:over-bg: #ede5d0;
+  --kt-tab-hover-bg: #ede5d0;
   --kt-tab-border: #e0d5b8;
 
-  --kt #-titlebar-bg: #e8dfc8;
-  --kt-titlebar-fg: #4a4540;
-  --kt-titlebar-border8: #e0d5b8;
+  --kt-titlebar-bg: #e8dfc8;
+  --kt-titlebar-fg: #3a3530;
+  --kt-titlebar-border: #d4c9a8;
 
   --kt-menu-bg: #faf6ec;
-  --kt-menu-fg: #3aa3530;
+  --kt-menu-fg: #3a3530;
   --kt-menu-selection-bg: #8a7359;
   --kt-menu-selection-fg: #ffffff;
   --kt-menu-separator: #e0d5b8;
@@ -475,7 +499,7 @@
   --kt-panel-border: #e0d5b8;
   --kt-panel-title-active-fg: #3a3530;
   --kt-panel-title-inactive-fg: #6b5d4f;
-  --kt-panel-tab7359;
+  --kt-panel-tab-active-border: #8a7359;
 
   --kt-statusbar-bg: #6b5d4f;
   --kt-statusbar-fg: #faf6ec;
@@ -505,6 +529,9 @@
   --kt-focus-border: #8a7359;
   --kt-widget-border-default: #d4c9a8;
   --kt-widget-shadow: #6b5d4f33;
+
+  --kt-widget-bg: #faf6ec;
+  --kt-widget-fg: #3a3530;
 
   --kt-scrollbar-slider-bg: #8a7a6066;
   --kt-scrollbar-slider-hover-bg: #8a7a60b3;
