@@ -24,6 +24,17 @@
    - ROM load triggers markDirty()
    ============================================================ */
 
+/* ============================================================
+   Ketor -- Workbench (v3)
+   ------------------------------------------------------------
+   Fixes:
+   - handleActivityClick now opens tab in editor (bug fix)
+   - Sidebar backdrop rendered when mobile/tablet + drawer open
+   - Root class switches between mobile-sidebar-open /
+     tablet-sidebar-open per breakpoint
+   - 5 themes in picker
+   ============================================================ */
+
 (function (global) {
   'use strict';
 
@@ -38,21 +49,31 @@
   var useMemo = React.useMemo;
 
   var ACTIVITY_META = {
-    translate: { icon: 'globe', title: 'Translation',
+    translate: {
+      icon: 'globe', title: 'Translation',
       placeholderTitle: 'Translation Workspace',
-      placeholderHint: 'Extract text with a .tbl table, edit translations, auto-relocate overflow.' },
-    hex: { icon: 'hex', title: 'Hex Editor',
+      placeholderHint: 'Extract text with a .tbl table, edit translations, auto-relocate overflow.'
+    },
+    hex: {
+      icon: 'hex', title: 'Hex Editor',
       placeholderTitle: 'Hex Editor',
-      placeholderHint: 'Byte inspector with sections, pointers, categories, and Monkey-Moore relative search.' },
-    font: { icon: 'paintcan', title: 'Font & Graphics',
+      placeholderHint: 'Byte inspector with sections, pointers, categories, and Monkey-Moore relative search.'
+    },
+    font: {
+      icon: 'paintcan', title: 'Font & Graphics',
       placeholderTitle: 'Font & Graphics',
-      placeholderHint: 'Detect and edit font tiles, palettes, and graphics across supported consoles.' },
-    patch: { icon: 'package', title: 'Patch & Export',
+      placeholderHint: 'Detect and edit font tiles, palettes, and graphics across supported consoles.'
+    },
+    patch: {
+      icon: 'package', title: 'Patch & Export',
       placeholderTitle: 'Patch & Export',
-      placeholderHint: 'Generate IPS, export ROM, import/export project state.' },
-    tests: { icon: 'beaker', title: 'Tests',
+      placeholderHint: 'Generate IPS, export ROM, import/export project state.'
+    },
+    tests: {
+      icon: 'beaker', title: 'Tests',
       placeholderTitle: 'Test Suite',
-      placeholderHint: 'Unit tests and preview pipeline checks per workflow.' }
+      placeholderHint: 'Unit tests and preview pipeline checks per workflow.'
+    }
   };
 
   Ketor.ui.ACTIVITY_META = ACTIVITY_META;
@@ -87,10 +108,9 @@
   }
 
   function ActivityPlaceholder(props) {
-    var activity = props.activity;
-    var meta = ACTIVITY_META[activity] || {};
+    var meta = ACTIVITY_META[props.activity] || {};
     return e('div', { className: 'kt-activity-placeholder' },
-      e('div', { className: 'ap-title' }, meta.placeholderTitle || meta.title || activity),
+      e('div', { className: 'ap-title' }, meta.placeholderTitle || meta.title || props.activity),
       e('div', { className: 'ap-hint' }, meta.placeholderHint || '')
     );
   }
@@ -140,7 +160,6 @@
   function EditorColumn(props) {
     var state = props.state;
     var actions = props.actions;
-
     return e('div', { className: 'kt-editor-column' },
       e(Ketor.ui.KetorEditorArea, {
         groups: state.editorGroups,
@@ -171,9 +190,11 @@
   function ThemePickerModal(props) {
     if (!props.open) return null;
     var themes = [
-      { id: 'dark-plus', label: 'Dark+ (default)' },
+      { id: 'dark-plus', label: 'Dark+ (VS Code default)' },
       { id: 'dark-modern', label: 'Dark Modern' },
-      { id: 'dark-high-contrast', label: 'Dark High Contrast' }
+      { id: 'dark-high-contrast', label: 'Dark High Contrast' },
+      { id: 'light-plus', label: 'Light+ (VS Code default)' },
+      { id: 'light-ketor', label: 'Light Ketor (warm)' }
     ];
     return e('div', {
       className: 'kt-modal-overlay',
@@ -181,7 +202,7 @@
         if (ev.target === ev.currentTarget) props.onClose();
       }
     },
-      e('div', { className: 'kt-modal', style: { maxWidth: '420px' } },
+      e('div', { className: 'kt-modal', style: { maxWidth: '460px' } },
         e('div', { className: 'kt-modal-header' },
           e('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
             Ketor.ui.icon('symbol-color', { size: 16 }),
@@ -239,16 +260,13 @@
     });
     Ketor.commands.registerCommand('ketor.file.importProject', function () { logStub('Import Project'); });
     Ketor.commands.registerCommand('ketor.file.exportProject', function () {
-      actions.markClean();
-      logStub('Export Project');
+      actions.markClean(); logStub('Export Project');
     });
     Ketor.commands.registerCommand('ketor.file.saveModifiedRom', function () {
-      actions.markClean();
-      logStub('Save Modified ROM');
+      actions.markClean(); logStub('Save Modified ROM');
     });
     Ketor.commands.registerCommand('ketor.file.exportIps', function () {
-      actions.markClean();
-      logStub('Export IPS');
+      actions.markClean(); logStub('Export IPS');
     });
 
     Ketor.commands.registerCommand('ketor.edit.undo', function () { logStub('Undo'); });
@@ -302,6 +320,7 @@
     var tasks = wb.tasks;
     var logs = wb.logs;
     var problems = wb.problems;
+    var bp = wb.breakpoint;
 
     var [aboutOpen, setAboutOpen] = useState(false);
     var [themeOpen, setThemeOpen] = useState(false);
@@ -313,10 +332,8 @@
         setAboutOpen: setAboutOpen,
         setThemeOpen: setThemeOpen
       });
-      return function () { };
     }, []);
 
-    // Listen for ROM load (dispatched by Batch 13 integration)
     useEffect(function () {
       function onRomLoaded(ev) {
         var detail = ev && ev.detail ? ev.detail : null;
@@ -330,9 +347,19 @@
       return function () { window.removeEventListener('ketor:rom-loaded', onRomLoaded); };
     }, [actions]);
 
+    // FIX: open tab when clicking activity icon
     var handleActivityClick = useCallback(function (activityId) {
       actions.setActiveActivity(activityId);
-    }, [actions]);
+      var meta = ACTIVITY_META[activityId] || {};
+      var targetGroupId = state.editorGroups[0] ? state.editorGroups[0].id : 'group-1';
+      actions.openTab(targetGroupId, {
+        id: 'activity:' + activityId,
+        kind: 'activity',
+        title: meta.title || activityId,
+        icon: meta.icon || 'file',
+        payload: { activity: activityId }
+      });
+    }, [actions, state.editorGroups]);
 
     var handleWelcomeAction = useCallback(function (actionId) {
       if (actionId === 'load-rom') Ketor.commands.executeCommand('ketor.file.loadRom');
@@ -346,7 +373,9 @@
         return e(Provider, { tab: tab, payload: tab.payload || {}, workbench: wb });
       }
       if (tab.kind === 'activity') {
-        return e(ActivityPlaceholder, { activity: (tab.payload && tab.payload.activity) || tab.id.replace('activity:', '') });
+        return e(ActivityPlaceholder, {
+          activity: (tab.payload && tab.payload.activity) || tab.id.replace('activity:', '')
+        });
       }
       return e('div', { className: 'kt-activity-placeholder' },
         e('div', { className: 'ap-title' }, tab.title || 'Empty Tab'),
@@ -358,9 +387,11 @@
     if (!state.activityBarVisible) rootClasses.push('no-activitybar');
     if (!state.sidebarVisible) rootClasses.push('no-sidebar');
     if (!state.statusBarVisible) rootClasses.push('no-statusbar');
-    if (state.sidebarVisible) rootClasses.push('sidebar-open');
 
-    // Root CSS variables drive grid sizing
+    // Drawer state class per breakpoint
+    if (bp === 'mobile' && state.sidebarVisible) rootClasses.push('mobile-sidebar-open');
+    if (bp === 'tablet' && state.sidebarVisible) rootClasses.push('tablet-sidebar-open');
+
     var rootStyle = {
       '--kt-sidebar-width': state.sidebarVisible ? (state.sidebarWidth + 'px') : '0px'
     };
@@ -375,6 +406,9 @@
         label: first.label + (running.length > 1 ? ' (+' + (running.length - 1) + ')' : '')
       };
     }, [tasks]);
+
+    // Drawer backdrop (mobile/tablet only, when sidebar visible)
+    var showBackdrop = (bp === 'mobile' || bp === 'tablet') && state.sidebarVisible;
 
     return e('div', { className: rootClasses.join(' '), style: rootStyle },
       e(TitleBar, {
@@ -404,6 +438,12 @@
             activity: state.activeActivity,
             width: state.sidebarWidth,
             onResize: actions.setSidebarWidth
+          })
+        : null,
+      showBackdrop
+        ? e('div', {
+            className: 'kt-sidebar-backdrop',
+            onClick: function () { actions.closeDrawer(); }
           })
         : null,
       e(EditorColumn, {

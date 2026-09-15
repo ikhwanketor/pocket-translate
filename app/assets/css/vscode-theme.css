@@ -1,24 +1,67 @@
 /* ============================================================
-   Ketor -- VS Code Theme Variables
+   Ketor -- Theme Variables (v2)
    ------------------------------------------------------------
-   Color values match VS Code Dark+ (default) exactly.
-   Based on: microsoft/vscode src/vs/workbench/contrib/themes
-   Also includes Dark Modern and Dark High Contrast variants.
-   Applied via [data-ketor-theme] attribute on <html>.
+   5 themes:
+   - dark-plus (VS Code Dark+ default)
+   - dark-modern (VS Code Dark Modern 1.84+)
+   - dark-high-contrast (VS Code Dark High Contrast)
+   - light-plus (VS Code Light+ exact)
+   - light-ketor (custom warm cream for long editing sessions)
+   Applied via [data-ketor-theme] on <html>.
    ============================================================ */
 
+/* ---- Shared tokens ---- */
+:root {
+  --kt-font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
+                Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --kt-font-mono: "SF Mono", Monaco, Menlo, Consolas, "Ubuntu Mono",
+                  "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace;
+  --kt-font-size-base: 13px;
+  --kt-font-size-small: 11px;
+  --kt-font-size-code: 12px;
+
+  --kt-activitybar-width: 48px;
+  --kt-sidebar-min-width: 170px;
+  --kt-sidebar-default-width: 300px;
+  --kt-statusbar-height: 22px;
+  --kt-titlebar-height: 30px;
+  --kt-tabbar-height: 35px;
+  --kt-panel-header-height: 32px;
+  --kt-panel-default-height: 220px;
+  --kt-tab-height: 35px;
+  --kt-tree-indent: 8px;
+  --kt-border-radius: 2px;
+
+  --kt-transition-fast: 0.1s;
+  --kt-transition-medium: 0.15s;
+
+  --kt-z-sash: 35;
+  --kt-z-panel: 40;
+  --kt-z-titlebar: 2500;
+  --kt-z-drawer-backdrop: 250;
+  --kt-z-drawer: 300;
+  --kt-z-dropdown: 4000;
+  --kt-z-modal: 5000;
+
+  /* Semantic colors that stay constant across themes */
+  --kt-color-success: #4ec9b0;
+  --kt-color-warning: #dcdcaa;
+  --kt-color-error: #f44747;
+  --kt-color-info: #569cd6;
+}
+
+/* ============================================================
+   DARK+ (VS Code default)
+   ============================================================ */
 :root,
 [data-ketor-theme="dark-plus"] {
-  /* ---- Editor ---- */
+  color-scheme: dark;
+
   --kt-editor-bg: #1e1e1e;
   --kt-editor-fg: #d4d4d4;
-  --kt-editor-line-highlight: #282828;
   --kt-editor-selection: #264f78;
-  --kt-editor-inactive-selection: #3a3d41;
-  --kt-editor-find-match: #515c6a;
-  --kt-editor-find-match-highlight: #ea5c0055;
+  --kt-editor-line-highlight: #282828;
 
-  /* ---- Activity Bar ---- */
   --kt-activitybar-bg: #333333;
   --kt-activitybar-fg: #ffffff;
   --kt-activitybar-inactive-fg: #ffffff66;
@@ -26,30 +69,26 @@
   --kt-activitybar-badge-bg: #007acc;
   --kt-activitybar-badge-fg: #ffffff;
 
-  /* ---- Side Bar ---- */
   --kt-sidebar-bg: #252526;
   --kt-sidebar-fg: #cccccc;
   --kt-sidebar-border: #00000000;
   --kt-sidebar-title-fg: #bbbbbb;
-  --kt-sidebar-section-header-bg: #00000000;
   --kt-sidebar-section-header-border: #cccccc33;
 
-  /* ---- Editor Group / Tabs ---- */
   --kt-tabs-bg: #252526;
   --kt-tabs-border: #00000000;
   --kt-tab-active-bg: #1e1e1e;
   --kt-tab-active-fg: #ffffff;
   --kt-tab-active-border-top: #00000000;
-  --kt-tab-active-border-bottom: #00000000;
   --kt-tab-inactive-bg: #2d2d2d;
   --kt-tab-inactive-fg: #ffffff80;
   --kt-tab-hover-bg: #2d2d2d;
   --kt-tab-border: #252526;
 
-  /* ---- Title Bar / Menu ---- */
   --kt-titlebar-bg: #3c3c3c;
   --kt-titlebar-fg: #cccccc;
   --kt-titlebar-border: #00000000;
+
   --kt-menu-bg: #252526;
   --kt-menu-fg: #cccccc;
   --kt-menu-selection-bg: #094771;
@@ -58,28 +97,23 @@
   --kt-menubar-selection-bg: #ffffff1f;
   --kt-menubar-selection-fg: #ffffff;
 
-  /* ---- Panel (bottom) ---- */
   --kt-panel-bg: #1e1e1e;
   --kt-panel-fg: #cccccc;
   --kt-panel-border: #80808059;
   --kt-panel-title-active-fg: #e7e7e7;
   --kt-panel-title-inactive-fg: #e7e7e799;
   --kt-panel-tab-active-border: #e7e7e7;
-  --kt-panel-tab-inactive-fg: #e7e7e799;
 
-  /* ---- Status Bar ---- */
   --kt-statusbar-bg: #007acc;
   --kt-statusbar-fg: #ffffff;
-  --kt-statusbar-border: #00000000;
   --kt-statusbar-hover-bg: #ffffff1f;
-  --kt-statusbar-remote-bg: #16825d;
 
-  /* ---- Inputs / Buttons ---- */
   --kt-input-bg: #3c3c3c;
   --kt-input-fg: #cccccc;
   --kt-input-border: #3c3c3c;
   --kt-input-placeholder-fg: #a6a6a6;
   --kt-input-active-border: #007acc;
+
   --kt-button-bg: #0e639c;
   --kt-button-fg: #ffffff;
   --kt-button-hover-bg: #1177bb;
@@ -87,149 +121,407 @@
   --kt-button-secondary-fg: #cccccc;
   --kt-button-secondary-hover-bg: #45494e;
 
-  /* ---- Badge / List ---- */
   --kt-badge-bg: #4d4d4d;
   --kt-badge-fg: #ffffff;
   --kt-list-active-selection-bg: #094771;
   --kt-list-active-selection-fg: #ffffff;
-  --kt-list-inactive-selection-bg: #37373d;
   --kt-list-hover-bg: #2a2d2e;
   --kt-list-hover-fg: #ffffff;
   --kt-list-focus-bg: #062f4a;
-  --kt-list-highlight-fg: #2aaafe;
 
-  /* ---- Focus / Border ---- */
   --kt-focus-border: #007fd4;
-  --kt-contrast-border: #6fc3df;
-  --kt-widget-border: #454545;
+  --kt-widget-border-default: #454545;
   --kt-widget-shadow: #0000005c;
 
-  /* ---- Scrollbar ---- */
-  --kt-scrollbar-shadow: #000000;
   --kt-scrollbar-slider-bg: #79797966;
   --kt-scrollbar-slider-hover-bg: #646464b3;
   --kt-scrollbar-slider-active-bg: #bfbfbf66;
 
-  /* ---- Dropdown ---- */
-  --kt-dropdown-bg: #3c3c3c;
-  --kt-dropdown-fg: #f0f0f0;
-  --kt-dropdown-border: #3c3c3c;
-
-  /* ---- Editor Widget ---- */
-  --kt-widget-bg: #252526;
-  --kt-widget-fg: #cccccc;
-  --kt-widget-border-default: #454545;
-
-  /* ---- Validation ---- */
   --kt-error-bg: #5a1d1d;
   --kt-error-fg: #f48771;
-  --kt-error-border: #be1100;
   --kt-warning-bg: #352a05;
   --kt-warning-fg: #cca700;
-  --kt-warning-border: #b89500;
   --kt-info-bg: #063b49;
   --kt-info-fg: #75beff;
-  --kt-info-border: #007acc;
-
-  /* ---- Typography ---- */
-  --kt-font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
-               Helvetica, Arial, sans-serif, "Apple Color Emoji",
-               "Segoe UI Emoji";
-  --kt-font-mono: "SF Mono", Monaco, Menlo, Consolas, "Ubuntu Mono",
-                  "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace;
-  --kt-font-size-base: 13px;
-  --kt-font-size-small: 11px;
-  --kt-font-size-code: 12px;
-
-  /* ---- Sizing (VS Code defaults) ---- */
-  --kt-activitybar-width: 48px;
-  --kt-sidebar-min-width: 170px;
-  --kt-sidebar-default-width: 300px;
-  --kt-statusbar-height: 22px;
-  --kt-titlebar-height: 30px;
-  --kt-tabbar-height: 35px;
-  --kt-panel-header-height: 35px;
-  --kt-panel-default-height: 220px;
-  --kt-tab-height: 35px;
-  --kt-tab-close-size: 16px;
-  --kt-tree-indent: 8px;
-  --kt-sash-width: 4px;
-  --kt-scrollbar-size: 14px;
-  --kt-scrollbar-size-thin: 10px;
-  --kt-border-radius: 2px;
-
-  /* ---- Motion (VS Code uses minimal transitions) ---- */
-  --kt-transition-fast: 0.1s;
-  --kt-transition-medium: 0.15s;
-
-  /* ---- Z-index ---- */
-  --kt-z-sash: 35;
-  --kt-z-panel: 40;
-  --kt-z-titlebar: 2500;
-  --kt-z-dropdown: 4000;
-  --kt-z-modal: 5000;
 }
 
-/* ---- Dark Modern (VS Code 1.84+) ---- */
+/* ============================================================
+   DARK MODERN (VS Code 1.84+)
+   ============================================================ */
 [data-ketor-theme="dark-modern"] {
+  color-scheme: dark;
+
   --kt-editor-bg: #1f1f1f;
   --kt-editor-fg: #cccccc;
+  --kt-editor-selection: #264f78;
+
   --kt-activitybar-bg: #181818;
   --kt-activitybar-fg: #d7d7d7;
   --kt-activitybar-inactive-fg: #868686;
   --kt-activitybar-border: #2b2b2b;
+  --kt-activitybar-badge-bg: #0078d4;
+  --kt-activitybar-badge-fg: #ffffff;
+
   --kt-sidebar-bg: #181818;
   --kt-sidebar-fg: #cccccc;
   --kt-sidebar-border: #2b2b2b;
+  --kt-sidebar-title-fg: #cccccc;
+  --kt-sidebar-section-header-border: #2b2b2b;
+
   --kt-tabs-bg: #181818;
+  --kt-tabs-border: #2b2b2b;
   --kt-tab-active-bg: #1f1f1f;
+  --kt-tab-active-fg: #ffffff;
   --kt-tab-active-border-top: #0078d4;
   --kt-tab-inactive-bg: #181818;
   --kt-tab-inactive-fg: #9d9d9d;
+  --kt-tab-hover-bg: #1f1f1f;
+  --kt-tab-border: #2b2b2b;
+
   --kt-titlebar-bg: #181818;
   --kt-titlebar-fg: #cccccc;
+  --kt-titlebar-border: #2b2b2b;
+
+  --kt-menu-bg: #1f1f1f;
+  --kt-menu-fg: #cccccc;
+  --kt-menu-selection-bg: #0078d4;
+  --kt-menu-selection-fg: #ffffff;
+  --kt-menu-separator: #2b2b2b;
+  --kt-menubar-selection-bg: #ffffff1f;
+  --kt-menubar-selection-fg: #ffffff;
+
   --kt-panel-bg: #181818;
+  --kt-panel-fg: #cccccc;
   --kt-panel-border: #2b2b2b;
+  --kt-panel-title-active-fg: #cccccc;
+  --kt-panel-title-inactive-fg: #9d9d9d;
+  --kt-panel-tab-active-border: #0078d4;
+
   --kt-statusbar-bg: #181818;
   --kt-statusbar-fg: #cccccc;
   --kt-statusbar-hover-bg: #ffffff1f;
+
+  --kt-input-bg: #313131;
+  --kt-input-fg: #cccccc;
+  --kt-input-border: #3c3c3c;
+  --kt-input-placeholder-fg: #989898;
+  --kt-input-active-border: #0078d4;
+
+  --kt-button-bg: #0078d4;
+  --kt-button-fg: #ffffff;
+  --kt-button-hover-bg: #026ec1;
+  --kt-button-secondary-bg: #313131;
+  --kt-button-secondary-fg: #cccccc;
+  --kt-button-secondary-hover-bg: #3c3c3c;
+
+  --kt-badge-bg: #616161;
+  --kt-badge-fg: #ffffff;
+  --kt-list-active-selection-bg: #04395e;
+  --kt-list-active-selection-fg: #ffffff;
+  --kt-list-hover-bg: #2a2d2e;
+  --kt-list-hover-fg: #ffffff;
+  --kt-list-focus-bg: #062f4a;
+
+  --kt-focus-border: #0078d4;
+  --kt-widget-border-default: #313131;
+  --kt-widget-shadow: #0000005c;
+
+  --kt-scrollbar-slider-bg: #4e4e4e;
+  --kt-scrollbar-slider-hover-bg: #5e5e5e;
+  --kt-scrollbar-slider-active-bg: #6e6e6e;
+
+  --kt-error-bg: #5a1d1d;
+  --kt-error-fg: #f85149;
+  --kt-warning-bg: #352a05;
+  --kt-warning-fg: #cca700;
+  --kt-info-bg: #063b49;
+  --kt-info-fg: #75beff;
 }
 
-/* ---- Dark High Contrast ---- */
+/* ============================================================
+   DARK HIGH CONTRAST
+   ============================================================ */
 [data-ketor-theme="dark-high-contrast"] {
+  color-scheme: dark;
+
   --kt-editor-bg: #000000;
   --kt-editor-fg: #ffffff;
+  --kt-editor-selection: #f38518;
+
   --kt-activitybar-bg: #000000;
   --kt-activitybar-fg: #ffffff;
   --kt-activitybar-inactive-fg: #ffffff99;
   --kt-activitybar-border: #6fc3df;
+  --kt-activitybar-badge-bg: #000000;
+  --kt-activitybar-badge-fg: #ffffff;
+
   --kt-sidebar-bg: #000000;
   --kt-sidebar-fg: #ffffff;
   --kt-sidebar-border: #6fc3df;
+  --kt-sidebar-title-fg: #ffffff;
+  --kt-sidebar-section-header-border: #6fc3df;
+
   --kt-tabs-bg: #000000;
+  --kt-tabs-border: #6fc3df;
   --kt-tab-active-bg: #000000;
   --kt-tab-active-fg: #ffffff;
   --kt-tab-active-border-top: #f38518;
   --kt-tab-inactive-bg: #000000;
   --kt-tab-inactive-fg: #ffffff99;
+  --kt-tab-hover-bg: #ffffff1f;
+  --kt-tab-border: #6fc3df;
+
+  --kt-titlebar-bg: #000000;
+  --kt-titlebar-fg: #ffffff;
+  --kt-titlebar-border: #6fc3df;
+
+  --kt-menu-bg: #000000;
+  --kt-menu-fg: #ffffff;
+  --kt-menu-selection-bg: #f38518;
+  --kt-menu-selection-fg: #000000;
+  --kt-menu-separator: #6fc3df;
+  --kt-menubar-selection-bg: #f38518;
+  --kt-menubar-selection-fg: #000000;
+
   --kt-panel-bg: #000000;
+  --kt-panel-fg: #ffffff;
   --kt-panel-border: #6fc3df;
+  --kt-panel-title-active-fg: #ffffff;
+  --kt-panel-title-inactive-fg: #ffffff99;
+  --kt-panel-tab-active-border: #f38518;
+
   --kt-statusbar-bg: #000000;
   --kt-statusbar-fg: #ffffff;
-  --kt-statusbar-border: #6fc3df;
+  --kt-statusbar-hover-bg: #f38518;
+
   --kt-input-bg: #000000;
   --kt-input-fg: #ffffff;
   --kt-input-border: #6fc3df;
+  --kt-input-placeholder-fg: #ffffff99;
+  --kt-input-active-border: #f38518;
+
+  --kt-button-bg: #000000;
+  --kt-button-fg: #ffffff;
+  --kt-button-hover-bg: #f38518;
+  --kt-button-secondary-bg: #000000;
+  --kt-button-secondary-fg: #ffffff;
+  --kt-button-secondary-hover-bg: #ffffff1f;
+
+  --kt-badge-bg: #000000;
+  --kt-badge-fg: #ffffff;
+  --kt-list-active-selection-bg: #f38518;
+  --kt-list-active-selection-fg: #000000;
+  --kt-list-hover-bg: #ffffff1f;
+  --kt-list-hover-fg: #ffffff;
+  --kt-list-focus-bg: #000000;
+
   --kt-focus-border: #f38518;
+  --kt-widget-border-default: #6fc3df;
+  --kt-widget-shadow: #000000;
+
+  --kt-scrollbar-slider-bg: #6fc3df;
+  --kt-scrollbar-slider-hover-bg: #f38518;
+  --kt-scrollbar-slider-active-bg: #ffffff;
+
+  --kt-error-bg: #000000;
+  --kt-error-fg: #ff9b9b;
+  --kt-warning-bg: #000000;
+  --kt-warning-fg: #ffcc66;
+  --kt-info-bg: #000000;
+  --kt-info-fg: #6fc3df;
 }
 
-/* ---- Base resets applied at :root ---- */
-* {
-  box-sizing: border-box;
+/* ============================================================
+   LIGHT+ (VS Code Light+ exact)
+   ============================================================ */
+[data-ketor-theme="light-plus"] {
+  color-scheme: light;
+
+  --kt-editor-bg: #ffffff;
+  --kt-editor-fg: #333333;
+  --kt-editor-selection: #add6ff;
+
+  --kt-activitybar-bg: #2c2c2c;
+  --kt-activitybar-fg: #ffffff;
+  --kt-activitybar-inactive-fg: #ffffff66;
+  --kt-activitybar-border: #00000000;
+  --kt-activitybar-badge-bg: #007acc;
+  --kt-activitybar-badge-fg: #ffffff;
+
+  --kt-sidebar-bg: #f3f3f3;
+  --kt-sidebar-fg: #616161;
+  --kt-sidebar-border: #e7e7e7;
+  --kt-sidebar-title-fg: #616161;
+  --kt-sidebar-section-header-border: #e7e7e7;
+
+  --kt-tabs-bg: #f3f3f3;
+  --kt-tabs-border: #e7e7e7;
+  --kt-tab-active-bg: #ffffff;
+  --kt-tab-active-fg: #333333;
+  --kt-tab-active-border-top: #00000000;
+  --kt-tab-inactive-bg: #ececec;
+  --kt-tab-inactive-fg: #33333380;
+  --kt-tab-hover-bg: #e8e8e8;
+  --kt-tab-border: #e7e7e7;
+
+  --kt-titlebar-bg: #dddddd;
+  --kt-titlebar-fg: #333333;
+  --kt-titlebar-border: #00000000;
+
+  --kt-menu-bg: #ffffff;
+  --kt-menu-fg: #333333;
+  --kt-menu-selection-bg: #0060c0;
+  --kt-menu-selection-fg: #ffffff;
+  --kt-menu-separator: #e7e7e7;
+  --kt-menubar-selection-bg: #0000001f;
+  --kt-menubar-selection-fg: #000000;
+
+  --kt-panel-bg: #ffffff;
+  --kt-panel-fg: #333333;
+  --kt-panel-border: #e7e7e7;
+  --kt-panel-title-active-fg: #333333;
+  --kt-panel-title-inactive-fg: #33333380;
+  --kt-panel-tab-active-border: #007acc;
+
+  --kt-statusbar-bg: #007acc;
+  --kt-statusbar-fg: #ffffff;
+  --kt-statusbar-hover-bg: #ffffff1f;
+
+  --kt-input-bg: #ffffff;
+  --kt-input-fg: #333333;
+  --kt-input-border: #cecece;
+  --kt-input-placeholder-fg: #767676;
+  --kt-input-active-border: #007acc;
+
+  --kt-button-bg: #007acc;
+  --kt-button-fg: #ffffff;
+  --kt-button-hover-bg: #0062a3;
+  --kt-button-secondary-bg: #e7e7e7;
+  --kt-button-secondary-fg: #333333;
+  --kt-button-secondary-hover-bg: #dcdcdc;
+
+  --kt-badge-bg: #c4c4c4;
+  --kt-badge-fg: #333333;
+  --kt-list-active-selection-bg: #0060c0;
+  --kt-list-active-selection-fg: #ffffff;
+  --kt-list-hover-bg: #e8e8e8;
+  --kt-list-hover-fg: #000000;
+  --kt-list-focus-bg: #d6ebff;
+
+  --kt-focus-border: #0090f1;
+  --kt-widget-border-default: #cecece;
+  --kt-widget-shadow: #00000029;
+
+  --kt-scrollbar-slider-bg: #64646466;
+  --kt-scrollbar-slider-hover-bg: #646464b3;
+  --kt-scrollbar-slider-active-bg: #bfbfbf66;
+
+  --kt-error-bg: #ffeaea;
+  --kt-error-fg: #a1260d;
+  --kt-warning-bg: #fff4d6;
+  --kt-warning-fg: #855d00;
+  --kt-info-bg: #e0f0ff;
+  --kt-info-fg: #00539c;
 }
 
-html,
-body {
+/* ============================================================
+   LIGHT KETOR (custom warm cream)
+   Comfortable for long editing sessions without pure white.
+   ============================================================ */
+[data-ketor-theme="light-ketor"] {
+  color-scheme: light;
+
+  --kt-editor-bg: #faf6ec;
+  --kt-editor-fg: #3a3530;
+  --kt-editor-selection: #e0d5b8;
+
+  --kt-activitybar-bg: #2c2c2c;
+  --kt-activitybar-fg: #f5eedb;
+  --kt-activitybar-inactive-fg: #f5eedb66;
+  --kt-activitybar-border: #00000000;
+  --kt-activitybar-badge-bg: #8a7359;
+  --kt-activitybar-badge-fg: #ffffff;
+
+  --kt-sidebar-bg: #f0ead8;
+  --kt-sidebar-fg: #4a4540;
+  --kt-sidebar-border: #e0d5b8;
+  --kt-sidebar-title-fg: #6b5d4f;
+  --kt-sidebar-section-header-border: #e0d5b8;
+
+  --kt-tabs-bg: #f0ead8;
+  --kt-tabs-border: #e0d5b8;
+  --kt-tab-active-bg: #faf6ec;
+  --kt-tab-active-active-fg: #3a3530;
+  --kt-tab-active-border-top: #8a7359;
+  --kt-tab-inactive-bg:-border #e8dfc8;
+  --kt-tab-inactive-fg: #6b5d4f;
+  --kt-tab-h:over-bg: #ede5d0;
+  --kt-tab-border: #e0d5b8;
+
+  --kt #-titlebar-bg: #e8dfc8;
+  --kt-titlebar-fg: #4a4540;
+  --kt-titlebar-border8: #e0d5b8;
+
+  --kt-menu-bg: #faf6ec;
+  --kt-menu-fg: #3aa3530;
+  --kt-menu-selection-bg: #8a7359;
+  --kt-menu-selection-fg: #ffffff;
+  --kt-menu-separator: #e0d5b8;
+  --kt-menubar-selection-bg: #0000001f;
+  --kt-menubar-selection-fg: #000000;
+
+  --kt-panel-bg: #faf6ec;
+  --kt-panel-fg: #3a3530;
+  --kt-panel-border: #e0d5b8;
+  --kt-panel-title-active-fg: #3a3530;
+  --kt-panel-title-inactive-fg: #6b5d4f;
+  --kt-panel-tab7359;
+
+  --kt-statusbar-bg: #6b5d4f;
+  --kt-statusbar-fg: #faf6ec;
+  --kt-statusbar-hover-bg: #ffffff29;
+
+  --kt-input-bg: #faf6ec;
+  --kt-input-fg: #3a3530;
+  --kt-input-border: #d4c9a8;
+  --kt-input-placeholder-fg: #8a7a60;
+  --kt-input-active-border: #8a7359;
+
+  --kt-button-bg: #6b5d4f;
+  --kt-button-fg: #ffffff;
+  --kt-button-hover-bg: #554a3e;
+  --kt-button-secondary-bg: #e8dfc8;
+  --kt-button-secondary-fg: #3a3530;
+  --kt-button-secondary-hover-bg: #ddd2b5;
+
+  --kt-badge-bg: #d4c9a8;
+  --kt-badge-fg: #4a4540;
+  --kt-list-active-selection-bg: #8a7359;
+  --kt-list-active-selection-fg: #ffffff;
+  --kt-list-hover-bg: #ede5d0;
+  --kt-list-hover-fg: #3a3530;
+  --kt-list-focus-bg: #f0e2c0;
+
+  --kt-focus-border: #8a7359;
+  --kt-widget-border-default: #d4c9a8;
+  --kt-widget-shadow: #6b5d4f33;
+
+  --kt-scrollbar-slider-bg: #8a7a6066;
+  --kt-scrollbar-slider-hover-bg: #8a7a60b3;
+  --kt-scrollbar-slider-active-bg: #8a7a60;
+
+  --kt-error-bg: #f7e6dc;
+  --kt-error-fg: #a1260d;
+  --kt-warning-bg: #f6efd9;
+  --kt-warning-fg: #855d00;
+  --kt-info-bg: #e5eee6;
+  --kt-info-fg: #3d5a40;
+}
+
+/* ---- Base resets ---- */
+* { box-sizing: border-box; }
+
+html, body {
   margin: 0;
   padding: 0;
   height: 100%;
@@ -241,14 +533,9 @@ body {
   font-size: var(--kt-font-size-base);
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
 }
 
-code,
-pre,
-.kt-mono,
-input[type="text"],
-input[type="number"],
-textarea {
+code, pre, .kt-mono,
+input[type="text"], input[type="number"], textarea {
   font-family: var(--kt-font-mono);
 }

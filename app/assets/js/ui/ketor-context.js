@@ -44,6 +44,17 @@
    markClean() triggered on export/save.
    ============================================================ */
 
+/* ============================================================
+   Ketor -- Workbench Context (v3)
+   ------------------------------------------------------------
+   Adds:
+   - useBreakpoint() hook: 'mobile' | 'tablet' | 'desktop'
+   - drawerOpen state (for mobile/tablet sidebar overlay)
+   - Default sidebarVisible depends on breakpoint
+     (mobile/tablet = false, desktop = true)
+   - closeDrawer() to dismiss backdrop
+   ============================================================ */
+
 (function (global) {
   'use strict';
 
@@ -68,6 +79,35 @@
     theme: 'dark-plus'
   };
 
+  function getBreakpoint() {
+    try {
+      var w = window.innerWidth || document.documentElement.clientWidth;
+      if (w <= 600) return 'mobile';
+      if (w <= 1024) return 'tablet';
+      return 'desktop';
+    } catch (_) {
+      return 'desktop';
+    }
+  }
+
+  function useBreakpoint() {
+    var React_useState = React.useState;
+    var React_useEffect = React.useEffect;
+    var [bp, setBp] = React_useState(getBreakpoint);
+
+    React_useEffect(function () {
+      var handler = function () { setBp(getBreakpoint()); };
+      window.addEventListener('resize', handler);
+      window.addEventListener('orientationchange', handler);
+      return function () {
+        window.removeEventListener('resize', handler);
+        window.removeEventListener('orientationchange', handler);
+      };
+    }, []);
+
+    return bp;
+  }
+
   function loadSession() {
     try {
       var raw = global.localStorage.getItem(SESSION_KEY);
@@ -91,18 +131,14 @@
         sidebarWidth: state.sidebarWidth,
         theme: state.theme,
         hasUnsavedWork: !!hasUnsavedWork,
-        // Only persist editor tab metadata when there is unsaved work
         editorGroups: hasUnsavedWork ? state.editorGroups.map(function (g) {
           return {
             id: g.id,
             activeTabId: g.activeTabId,
             tabs: g.tabs.map(function (t) {
               return {
-                id: t.id,
-                kind: t.kind,
-                title: t.title,
-                icon: t.icon,
-                dirty: t.dirty === true,
+                id: t.id, kind: t.kind, title: t.title,
+                icon: t.icon, dirty: t.dirty === true,
                 payload: t.payload || {}
               };
             })
@@ -123,7 +159,8 @@
     state: DEFAULT_STATE,
     actions: {},
     tasks: [], logs: [], problems: [],
-    hasUnsavedWork: false
+    hasUnsavedWork: false,
+    breakpoint: 'desktop'
   });
 
   function generateGroupId() {
@@ -137,11 +174,22 @@
     var React_useCallback = React.useCallback;
     var React_useMemo = React.useMemo;
 
+    var bp = useBreakpoint();
     var saved = loadSession();
     var hasSavedWork = saved && saved.hasUnsavedWork === true;
 
+    // Sidebar default: hidden on mobile/tablet, visible on desktop.
+    // On restore, respect saved value (user may have opened it on desktop).
+    var defaultSidebar = bp === 'desktop';
+
     var [activeActivity, setActiveActivityRaw] = React_useState(saved ? saved.activeActivity : DEFAULT_STATE.activeActivity);
-    var [sidebarVisible, setSidebarVisibleRaw] = React_useState(saved ? saved.sidebarVisible !== false : DEFAULT_STATE.sidebarVisible);
+    var [sidebarVisible, setSidebarVisibleRaw] = React_useState(function () {
+      if (saved && typeof saved.sidebarVisible === 'boolean') {
+        // On mobile/tablet, always start closed
+        return bp === 'desktop' ? saved.sidebarVisible : false;
+      }
+      return defaultSidebar;
+    });
     var [activityBarVisible, setActivityBarVisibleRaw] = React_useState(saved ? saved.activityBarVisible !== false : DEFAULT_STATE.activityBarVisible);
     var [statusBarVisible, setStatusBarVisibleRaw] = React_useState(saved ? saved.statusBarVisible !== false : DEFAULT_STATE.statusBarVisible);
     var [panelVisible, setPanelVisibleRaw] = React_useState(saved ? saved.panelVisible === true : DEFAULT_STATE.panelVisible);
@@ -162,7 +210,14 @@
     var [logs, setLogs] = React_useState([]);
     var [problems, setProblems] = React_useState([]);
 
-    // Persist session (debounced)
+    // Auto-close sidebar when breakpoint switches to mobile/tablet
+    React_useEffect(function () {
+      if (bp !== 'desktop') {
+        setSidebarVisibleRaw(false);
+      }
+    }, [bp]);
+
+    // Persist session
     var saveTimerRef = React_useRef(null);
     React_useEffect(function () {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -174,39 +229,55 @@
           statusBarVisible: statusBarVisible,
           panelVisible: panelVisible,
           panelActiveTab: panelActiveTab,
-          panelHeight: panelHeight,
+          panelHeight: panelHeightBar,
           sidebarWidth: sidebarWidth,
           theme: theme,
           editorGroups: editorGroups,
-          activeEditorGroupId: activeEditorGroupId
+          activeEditorGroupId: activeEditorVisibleGroupId
         }, hasUnsavedWork);
       }, 400);
       return function () {
-        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        if (saveTimerRefRaw.current) clearTimeout(saveTimerRef.current);
       };
     }, [activeActivity, sidebarVisible, activityBarVisible, statusBarVisible,
-        panelVisible, panelActiveTab, panelHeight, sidebarWidth, theme,
+        panelVisible, panelActiveTab(function, panelHeight, sidebarWidth, theme,
         editorGroups, activeEditorGroupId, hasUnsavedWork]);
 
-    // Apply theme
+    ( // Apply theme
     React_useEffect(function () {
-      try { document.documentElement.setAttribute('data-ketor-theme', theme); } catch (_) { }
+      try { document.documentElement.setAttribute('data-kvetor-theme', theme); } catch (_) { }
     }, [theme]);
 
     // Actions
-    var setActiveActivity = React_useCallback(function (id) {
+   ) var setActiveActivity = React_useCallback(function (id) {
       setActiveActivityRaw(function (prev) {
-        if (prev === id && sidebarVisible) {
-          setSidebarVisibleRaw(function (v) { return !v; });
-          return prev;
+        // On { mobile/tablet: clicking activity toggles the drawer.
+        // On desktop: clicking same activity return toggles sidebar.
+        if (bp === 'desktop') {
+          if (prev === id && ! sidebarVisible) {
+            setSidebarVisibleRaw(false);
+            return prev;
+          }
+          if (!sidebarVisible) setSidebarVisibleRaw(true);
+          return id;
+        } else {
+          // Mobile/tablet: always ensure drawer opens
+          if (prev === id && sidebarVisible) {
+            setSidebarVisibleRaw(false);
+            return prev;
+          }
+          setSidebarVisibleRaw(true);
+          return id;
         }
-        if (!sidebarVisible) setSidebarVisibleRaw(true);
-        return id;
       });
-    }, [sidebarVisible]);
+    }, [bp, sidebarVisible]);
 
     var toggleSidebar = React_useCallback(function () {
       setSidebarVisibleRaw(function (v) { return !v; });
+    }, []);
+
+    var closeDrawer = React_useCallback(function () {
+      setSidebarVisibleRaw(false);
     }, []);
 
     var togglePanel = React_useCallback(function () {
@@ -218,7 +289,7 @@
     }, []);
 
     var toggleStatusBar = React_useCallback(function () {
-      setStatusBarVisibleRaw(function (v) { return !v; });
+      setStatusv; });
     }, []);
 
     var openTab = React_useCallback(function (groupId, tab) {
@@ -249,7 +320,7 @@
       });
     }, []);
 
-    var setActiveTab = React_useCallback(function (groupId, tabId) {
+    var setActiveTab = React.useCallback(function (groupId, tabId) {
       setEditorGroups(function (groups) {
         return groups.map(function (g) {
           if (g.id !== groupId) return g;
@@ -259,7 +330,7 @@
       setActiveEditorGroupId(groupId);
     }, []);
 
-    var moveTab = React_useCallback(function (fromGroupId, tabId, toGroupId, toIndex) {
+    var moveTab = React.useCallback(function (fromGroupId, tabId, toGroupId, toIndex) {
       setEditorGroups(function (groups) {
         var fromGroup = groups.find(function (g) { return g.id === fromGroupId; });
         var toGroup = groups.find(function (g) { return g.id === toGroupId; });
@@ -303,7 +374,7 @@
       setActiveEditorGroupId(toGroupId);
     }, []);
 
-    var splitEditor = React_useCallback(function () {
+    var splitEditor = React.useCallback(function () {
       setEditorGroups(function (groups) {
         if (groups.length >= 3) return groups;
         var newId = generateGroupId();
@@ -311,7 +382,7 @@
       });
     }, []);
 
-    var closeEditorGroup = React_useCallback(function (groupId) {
+    var closeEditorGroup = React.useCallback(function (groupId) {
       setEditorGroups(function (groups) {
         if (groups.length <= 1) return groups;
         var remaining = groups.filter(function (g) { return g.id !== groupId; });
@@ -322,34 +393,28 @@
       });
     }, []);
 
-    var setTheme = React_useCallback(function (id) { setThemeRaw(id || 'dark-plus'); }, []);
-    var setPanelActiveTab = React_useCallback(function (id) { setPanelActiveTabRaw(id || 'background'); }, []);
-    var setPanelHeight = React_useCallback(function (px) {
+    var setTheme = React.useCallback(function (id) { setThemeRaw(id || 'dark-plus'); }, []);
+    var setPanelActiveTab = React.useCallback(function (id) { setPanelActiveTabRaw(id || 'background'); }, []);
+    var setPanelHeight = React.useCallback(function (px) {
       setPanelHeightRaw(Math.max(80, Math.min(600, Number(px) || 220)));
     }, []);
-    var setSidebarWidth = React_useCallback(function (px) {
+    var setSidebarWidth = React.useCallback(function (px) {
       setSidebarWidthRaw(Math.max(170, Math.min(600, Number(px) || 300)));
     }, []);
 
-    // Mark dirty / clean
-    var markDirty = React_useCallback(function () { setHasUnsavedWork(true); }, []);
-    var markClean = React_useCallback(function () { setHasUnsavedWork(false); }, []);
+    var markDirty = React.useCallback(function () { setHasUnsavedWork(true); }, []);
+    var markClean = React.useCallback(function () { setHasUnsavedWork(false); }, []);
 
     // Tasks
-    var startTask = React_useCallback(function (task) {
+    var startTask = React.useCallback(function (task) {
       var id = task.id || ('task-' + Date.now());
       var record = {
-        id: id,
-        label: task.label || 'Task',
-        detail: task.detail || '',
-        progress: Number(task.progress) || 0,
-        status: 'running',
-        startedAt: Date.now(),
-        finishedAt: null
+        id: id, label: task.label || 'Task', detail: task.detail || '',
+        progress: Number(task.progress) || 0, status: 'running',
+        startedAt: Date.now(), finishedAt: null
       };
       setTasks(function (prev) {
-        var filtered = prev.filter(function (t) { return t.id !== id; });
-        return [record].concat(filtered).slice(0, 20);
+        return [record].concat(prev.filter(function (t) { return t.id !== id; })).slice(0, 20);
       });
       return id;
     }, []);
@@ -370,8 +435,7 @@
         return prev.map(function (t) {
           if (t.id !== id) return t;
           return Object.assign({}, t, {
-            status: status || 'done',
-            progress: 100,
+            status: status || 'done', progress: 100,
             detail: detail != null ? detail : t.detail,
             finishedAt: Date.now()
           });
@@ -380,19 +444,14 @@
     }, []);
 
     var clearFinishedTasks = React.useCallback(function () {
-      setTasks(function (prev) {
-        return prev.filter(function (t) { return t.status === 'running'; });
-      });
+      setTasks(function (prev) { return prev.filter(function (t) { return t.status === 'running'; }); });
     }, []);
 
-    // Logs
     var appendLog = React.useCallback(function (level, message, source) {
       var entry = {
         id: 'log-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-        level: level || 'info',
-        message: String(message || ''),
-        source: source || 'ketor',
-        timestamp: Date.now()
+        level: level || 'info', message: String(message || ''),
+        source: source || 'ketor', timestamp: Date.now()
       };
       setLogs(function (prev) { return prev.concat([entry]).slice(-500); });
       return entry.id;
@@ -400,18 +459,16 @@
 
     var clearLogs = React.useCallback(function () { setLogs([]); }, []);
 
-    // Problems
     var addProblem = React.useCallback(function (problem) {
       var record = {
-        id: problem.id || ('prob-' + Date.now() + '-' + Math.floor(Math.random() * 1000)),
+        id: problem.id || ('prob-' + Date.now()),
         severity: problem.severity || 'warning',
         message: String(problem.message || ''),
         source: problem.source || 'ketor',
         location: problem.location || null
       };
       setProblems(function (prev) {
-        var filtered = prev.filter(function (p) { return p.id !== record.id; });
-        return [record].concat(filtered).slice(0, 100);
+        return [record].concat(prev.filter(function (p) { return p.id !== record.id; })).slice(0, 100);
       });
       return record.id;
     }, []);
@@ -424,7 +481,7 @@
       return group.tabs.find(function (t) { return t.id === group.activeTabId; }) || null;
     }, [editorGroups, activeEditorGroupId]);
 
-    var state = React_useMemo(function () {
+    var state = React.useMemo(function () {
       return {
         activeActivity: activeActivity,
         sidebarVisible: sidebarVisible,
@@ -442,11 +499,12 @@
         panelVisible, panelActiveTab, panelHeight, sidebarWidth,
         editorGroups, activeEditorGroupId, theme]);
 
-    var actions = React_useMemo(function () {
+    var actions = React.useMemo(function () {
       return {
         setActiveActivity: setActiveActivity,
         setSidebarVisible: setSidebarVisibleRaw,
         toggleSidebar: toggleSidebar,
+        closeDrawer: closeDrawer,
         setPanelVisible: setPanelVisibleRaw,
         togglePanel: togglePanel,
         setPanelActiveTab: setPanelActiveTab,
@@ -456,41 +514,29 @@
         toggleStatusBar: toggleStatusBar,
         setActivityBarVisible: setActivityBarVisibleRaw,
         setStatusBarVisible: setStatusBarVisibleRaw,
-        openTab: openTab,
-        closeTab: closeTab,
-        setActiveTab: setActiveTab,
-        moveTab: moveTab,
-        splitEditor: splitEditor,
-        closeEditorGroup: closeEditorGroup,
-        setTheme: setTheme,
-        getActiveTab: getActiveTab,
-        markDirty: markDirty,
-        markClean: markClean,
-        startTask: startTask,
-        updateTask: updateTask,
-        finishTask: finishTask,
-        clearFinishedTasks: clearFinishedTasks,
-        appendLog: appendLog,
-        clearLogs: clearLogs,
-        addProblem: addProblem,
-        clearProblems: clearProblems
+        openTab: openTab, closeTab: closeTab, setActiveTab: setActiveTab,
+        moveTab: moveTab, splitEditor: splitEditor, closeEditorGroup: closeEditorGroup,
+        setTheme: setTheme, getActiveTab: getActiveTab,
+        markDirty: markDirty, markClean: markClean,
+        startTask: startTask, updateTask: updateTask,
+        finishTask: finishTask, clearFinishedTasks: clearFinishedTasks,
+        appendLog: appendLog, clearLogs: clearLogs,
+        addProblem: addProblem, clearProblems: clearProblems
       };
-    }, [setActiveActivity, toggleSidebar, togglePanel, setPanelActiveTab,
+    }, [setActiveActivity, toggleSidebar, closeDrawer, togglePanel, setPanelActiveTab,
         setPanelHeight, setSidebarWidth, toggleActivityBar, toggleStatusBar,
         openTab, closeTab, setActiveTab, moveTab, splitEditor, closeEditorGroup,
         setTheme, getActiveTab, markDirty, markClean, startTask, updateTask,
         finishTask, clearFinishedTasks, appendLog, clearLogs, addProblem, clearProblems]);
 
-    var value = React_useMemo(function () {
+    var value = React.useMemo(function () {
       return {
-        state: state,
-        actions: actions,
-        tasks: tasks,
-        logs: logs,
-        problems: problems,
-        hasUnsavedWork: hasUnsavedWork
+        state: state, actions: actions,
+        tasks: tasks, logs: logs, problems: problems,
+        hasUnsavedWork: hasUnsavedWork,
+        breakpoint: bp
       };
-    }, [state, actions, tasks, logs, problems, hasUnsavedWork]);
+    }, [state, actions, tasks, logs, problems, hasUnsavedWork, bp]);
 
     return React.createElement(WorkbenchContext.Provider, { value: value }, props.children);
   }
@@ -502,6 +548,7 @@
   Ketor.ui.WorkbenchContext = WorkbenchContext;
   Ketor.ui.WorkbenchProvider = WorkbenchProvider;
   Ketor.ui.useWorkbench = useWorkbench;
+  Ketor.ui.useBreakpoint = useBreakpoint;
   Ketor.ui.clearSessionState = clearSession;
 
 })(window);

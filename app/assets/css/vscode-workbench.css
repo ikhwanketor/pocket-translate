@@ -22,6 +22,19 @@
    - Mobile (≤ 600px): activity bar at bottom, sidebar overlay
    ============================================================ */
 
+/* ============================================================
+   Ketor -- Workbench Layout (v3)
+   ------------------------------------------------------------
+   Breakpoints:
+   - Desktop (> 1024px):   activity left, sidebar, editor, panel
+   - Tablet (601–1024px):  activity left, sidebar overlay drawer
+   - Mobile (≤ 600px):     activity left, sidebar overlay drawer,
+                           backdrop, tighter paddings
+
+   Sidebar drawer opens via .kt-workbench.mobile-sidebar-open.
+   Backdrop renders as sibling of sidebar (JS-driven).
+   ============================================================ */
+
 .kt-workbench {
   display: grid;
   grid-template-columns: var(--kt-activitybar-width, 48px) var(--kt-sidebar-width, 300px) 1fr;
@@ -34,7 +47,7 @@
   width: 100vw;
   overflow: hidden;
   background: var(--kt-editor-bg);
-  transition: none;
+  position: relative;
 }
 
 .kt-workbench.no-activitybar {
@@ -72,7 +85,12 @@
   height: 100%;
   flex: 0 0 auto;
   padding: 0 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
+
+.kt-menubar::-webkit-scrollbar { display: none; }
 
 .kt-menubar-item {
   padding: 4px 8px;
@@ -85,6 +103,7 @@
   border: none;
   font-family: inherit;
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .kt-menubar-item:hover,
@@ -166,7 +185,7 @@
   color: var(--kt-menu-selection-fg);
 }
 
-.kt-dropdown-label {
+.kt-dropdown-item > span:nth-child(2) {
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -183,7 +202,7 @@
 
 .kt-dropdown-item:hover:not(:disabled) .shortcut {
   color: var(--kt-menu-selection-fg);
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .kt-dropdown-separator {
@@ -192,7 +211,7 @@
   margin: 4px 0;
 }
 
-/* ---- Activity Bar (left) ---- */
+/* ---- Activity Bar ---- */
 .kt-activitybar {
   grid-area: activitybar;
   background: var(--kt-activitybar-bg);
@@ -299,9 +318,7 @@
   transition: opacity 0.1s;
 }
 
-.kt-sidebar:hover .kt-sidebar-header .actions {
-  opacity: 1;
-}
+.kt-sidebar:hover .kt-sidebar-header .actions { opacity: 1; }
 
 .kt-sidebar-header .icon-btn {
   width: 22px;
@@ -317,14 +334,8 @@
   padding: 0;
 }
 
-.kt-sidebar-header .icon-btn:hover {
-  background: var(--kt-list-hover-bg);
-}
-
-.kt-sidebar-header .icon-btn svg {
-  width: 14px;
-  height: 14px;
-}
+.kt-sidebar-header .icon-btn:hover { background: var(--kt-list-hover-bg); }
+.kt-sidebar-header .icon-btn svg { width: 14px; height: 14px; }
 
 .kt-sidebar-content {
   flex: 1 1 auto;
@@ -356,9 +367,7 @@
   font-family: inherit;
 }
 
-.kt-sidebar-section-header:hover {
-  background: var(--kt-list-hover-bg);
-}
+.kt-sidebar-section-header:hover { background: var(--kt-list-hover-bg); }
 
 .kt-sidebar-section-header .chevron {
   width: 16px;
@@ -370,23 +379,12 @@
   flex: 0 0 auto;
 }
 
-.kt-sidebar-section-header .chevron svg {
-  width: 12px;
-  height: 12px;
-}
+.kt-sidebar-section-header .chevron svg { width: 12px; height: 12px; }
 
-.kt-sidebar-section-header.collapsed .chevron {
-  transform: rotate(-90deg);
-}
+.kt-sidebar-section-header.collapsed .chevron { transform: rotate(-90deg); }
 
-.kt-sidebar-section-body {
-  padding: 2px 0 8px 0;
-  overflow: hidden;
-}
-
-.kt-sidebar-section-body.collapsed {
-  display: none;
-}
+.kt-sidebar-section-body { padding: 2px 0 8px 0; overflow: hidden; }
+.kt-sidebar-section-body.collapsed { display: none; }
 
 .kt-sidebar-resize-handle {
   position: absolute;
@@ -400,8 +398,18 @@
 }
 
 .kt-sidebar-resize-handle:hover,
-.kt-sidebar-resize-handle.dragging {
-  background: var(--kt-focus-border);
+.kt-sidebar-resize-handle.dragging { background: var(--kt-focus-border); }
+
+/* ---- Sidebar Backdrop (mobile/tablet drawer) ---- */
+.kt-sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: var(--kt-z-drawer-backdrop);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  cursor: pointer;
 }
 
 /* ---- Editor Column ---- */
@@ -501,9 +509,7 @@
   background: var(--kt-tab-active-border-top, transparent);
 }
 
-.kt-tab.dragging {
-  opacity: 0.4;
-}
+.kt-tab.dragging { opacity: 0.4; }
 
 .kt-tab .tab-icon {
   width: 14px;
@@ -514,10 +520,7 @@
   flex: 0 0 auto;
 }
 
-.kt-tab .tab-icon svg {
-  width: 14px;
-  height: 14px;
-}
+.kt-tab .tab-icon svg { width: 14px; height: 14px; }
 
 .kt-tab .tab-label {
   flex: 1 1 auto;
@@ -544,24 +547,12 @@
 }
 
 .kt-tab:hover .tab-close,
-.kt-tab.active .tab-close {
-  opacity: 0.7;
-}
+.kt-tab.active .tab-close { opacity: 0.7; }
 
-.kt-tab .tab-close:hover {
-  background: var(--kt-list-hover-bg);
-  opacity: 1;
-}
+.kt-tab .tab-close:hover { background: var(--kt-list-hover-bg); opacity: 1; }
+.kt-tab .tab-close svg { width: 12px; height: 12px; }
 
-.kt-tab .tab-close svg {
-  width: 12px;
-  height: 12px;
-}
-
-.kt-tab.dirty .tab-close {
-  opacity: 1;
-}
-
+.kt-tab.dirty .tab-close { opacity: 1; }
 .kt-tab.dirty .tab-close svg { display: none; }
 
 .kt-tab.dirty .tab-close::before {
@@ -571,7 +562,6 @@
 }
 
 .kt-tab.dirty:hover .tab-close svg { display: block; }
-
 .kt-tab.dirty:hover .tab-close::before { display: none; }
 
 /* ---- Editor Content ---- */
@@ -648,9 +638,7 @@
   gap: 6px;
 }
 
-.kt-editor-empty .ketor-hint .hb {
-  opacity: 0.65;
-}
+.kt-editor-empty .ketor-hint .hb { opacity: 0.65; }
 
 /* ---- Activity Placeholder ---- */
 .kt-activity-placeholder {
@@ -679,7 +667,7 @@
   opacity: 0.55;
 }
 
-/* ---- Panel (bottom) ---- */
+/* ---- Panel ---- */
 .kt-panel-container {
   display: flex;
   flex-direction: column;
@@ -702,15 +690,13 @@
 }
 
 .kt-panel-resize-handle:hover,
-.kt-panel-resize-handle.dragging {
-  background: var(--kt-focus-border);
-}
+.kt-panel-resize-handle.dragging { background: var(--kt-focus-border); }
 
 .kt-panel-header {
   display: flex;
   align-items: center;
-  height: 32px;
-  min-height: 32px;
+  height: var(--kt-panel-header-height, 32px);
+  min-height: var(--kt-panel-header-height, 32px);
   padding: 0 8px;
   gap: 2px;
   user-select: none;
@@ -736,9 +722,7 @@
   gap: 6px;
 }
 
-.kt-panel-tab:hover {
-  color: var(--kt-panel-title-active-fg);
-}
+.kt-panel-tab:hover { color: var(--kt-panel-title-active-fg); }
 
 .kt-panel-tab.active {
   color: var(--kt-panel-title-active-fg);
@@ -761,14 +745,8 @@
   padding: 0;
 }
 
-.kt-panel-header .icon-btn:hover {
-  background: var(--kt-list-hover-bg);
-}
-
-.kt-panel-header .icon-btn svg {
-  width: 14px;
-  height: 14px;
-}
+.kt-panel-header .icon-btn:hover { background: var(--kt-list-hover-bg); }
+.kt-panel-header .icon-btn svg { width: 14px; height: 14px; }
 
 .kt-panel-body {
   flex: 1 1 auto;
@@ -793,7 +771,6 @@
   font-size: 11px;
   user-select: none;
   -webkit-user-select: none;
-  gap: 0;
   overflow: hidden;
 }
 
@@ -812,27 +789,14 @@
   cursor: default;
 }
 
-.kt-statusbar-item.clickable {
-  cursor: pointer;
-}
-
-.kt-statusbar-item.clickable:hover {
-  background: var(--kt-statusbar-hover-bg);
-}
-
-.kt-statusbar-item svg {
-  width: 12px;
-  height: 12px;
-}
+.kt-statusbar-item.clickable { cursor: pointer; }
+.kt-statusbar-item.clickable:hover { background: var(--kt-statusbar-hover-bg); }
+.kt-statusbar-item svg { width: 12px; height: 12px; }
 
 .kt-statusbar-spacer { flex: 1; }
 
 /* ---- Theme Picker ---- */
-.kt-theme-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+.kt-theme-picker { display: flex; flex-direction: column; gap: 6px; }
 
 .kt-theme-picker label {
   display: flex;
@@ -844,10 +808,7 @@
   cursor: pointer;
 }
 
-.kt-theme-picker label:hover {
-  background: var(--kt-list-hover-bg);
-}
-
+.kt-theme-picker label:hover { background: var(--kt-list-hover-bg); }
 .kt-theme-picker input[type="radio"] { margin: 0; }
 
 .kt-theme-swatch {
@@ -862,144 +823,151 @@
 .kt-theme-swatch.dark-plus { background: #1e1e1e; }
 .kt-theme-swatch.dark-modern { background: #1f1f1f; }
 .kt-theme-swatch.dark-high-contrast { background: #000; border-color: #6fc3df; }
+.kt-theme-swatch.light-plus { background: #ffffff; }
+.kt-theme-swatch.light-ketor { background: #faf6ec; }
 
 /* ============================================================
-   Responsive
+   TABLET (601–1024px)
+   Sidebar as drawer overlay, activity bar stays left.
    ============================================================ */
-
-/* ---- Tablet: sidebar default collapsed ---- */
-@media (max-width: 1024px) and (min-width: 601px) {
+@media (min-width: 601px) and (max-width: 1024px) {
   .kt-workbench {
-    grid-template-columns: var(--kt-activitybar-width, 48px) var(--kt-sidebar-width, 240px) 1fr;
+    grid-template-columns: var(--kt-activitybar-width, 48px) 1fr;
+    grid-template-areas:
+      "titlebar    titlebar"
+      "activitybar editor"
+      "statusbar   statusbar";
   }
 
-  .kt-workbench.no-sidebar,
-  .kt-workbench:not(.sidebar-open) {
-    grid-template-columns: var(--kt-activitybar-width, 48px) 0 1fr;
-  }
-
-  .kt-workbench.sidebar-open {
-    grid-template-columns: var(--kt-activitybar-width, 48px) 240px 1fr;
-  }
-}
-
-/* ---- Mobile: activity bar bottom, sidebar overlay ---- */
-@media (max-width: 600px) {
-  .kt-workbench,
-  .kt-workbench.no-activitybar,
-  .kt-workbench.no-sidebar {
+  .kt-workbench.no-activitybar {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr auto auto;
     grid-template-areas:
       "titlebar"
       "editor"
-      "activitybar"
       "statusbar";
   }
 
-  .kt-workbench.no-titlebar {
-    grid-template-rows: 1fr auto auto;
-    grid-template-areas:
-      "editor"
-      "activitybar"
-      "statusbar";
-  }
-
-  /* Activity bar becomes bottom tab bar */
-  .kt-activitybar {
-    flex-direction: row;
-    justify-content: space-around;
-    padding: 0;
-    width: 100%;
-    height: 52px;
-    border-right: none;
-    border-top: 1px solid var(--kt-activitybar-border);
-  }
-
-  .kt-activity-item {
-    width: auto;
-    height: 52px;
-    flex: 1 1 0;
-    max-width: 64px;
-    border-left: none;
-    border-top: 2px solid transparent;
-  }
-
-  .kt-activity-item.active {
-    border-left-color: transparent;
-    border-top-color: var(--kt-activitybar-fg);
-  }
-
-  .kt-activitybar-bottom {
-    flex-direction: row;
-    padding-bottom: 0;
-    margin-top: 0;
-    margin-left: auto;
-  }
-
-  /* Sidebar becomes overlay */
+  /* Sidebar becomes fixed drawer */
   .kt-sidebar {
     position: fixed;
     top: var(--kt-titlebar-height, 30px);
-    left: 0;
-    right: 0;
-    bottom: 74px;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 100% !important;
-    z-index: 200;
-    box-shadow: 0 0 24px rgba(0, 0, 0, 0.55);
-    border-right: none;
+    left: var(--kt-activitybar-width, 48px);
+    bottom: var(--kt-statusbar-height, 22px);
+    width: 320px !important;
+    min-width: 320px !important;
+    max-width: 320px !important;
+    z-index: var(--kt-z-drawer);
+    transform: translateX(-110%);
+    transition: transform 0.2s ease;
+    box-shadow: 6px 0 20px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+  }
+
+  .kt-workbench.tablet-sidebar-open .kt-sidebar {
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+
+  .kt-sidebar-backdrop {
+    display: block;
+  }
+
+  .kt-workbench.tablet-sidebar-open .kt-sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .kt-sidebar-resize-handle { display: none; }
+}
+
+/* ============================================================
+   MOBILE (≤ 600px)
+   Activity bar stays left (48px), sidebar drawer with backdrop.
+   ============================================================ */
+@media (max-width: 600px) {
+  .kt-workbench {
+    grid-template-columns: var(--kt-activitybar-width, 48px) 1fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "titlebar    titlebar"
+      "activitybar editor"
+      "statusbar   statusbar";
+  }
+
+  .kt-workbench.no-activitybar {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "titlebar"
+      "editor"
+      "statusbar";
+  }
+
+  /* Sidebar drawer */
+  .kt-sidebar {
+    position: fixed;
+    top: var(--kt-titlebar-height, 30px);
+    left: var(--kt-activitybar-width, 48px);
+    bottom: var(--kt-statusbar-height, 22px);
+    width: calc(100vw - var(--kt-activitybar-width, 48px)) !important;
+    min-width: calc(100vw - var(--kt-activitybar-width, 48px)) !important;
+    max-width: calc(100vw - var(--kt-activitybar-width, 48px)) !important;
+    z-index: var(--kt-z-drawer);
+    transform: translateX(-110%);
+    transition: transform 0.22s cubic-bezier(0.2, 0, 0.2, 1);
+    box-shadow: 6px 0 24px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+  }
+
+  .kt-workbench.mobile-sidebar-open .kt-sidebar {
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+
+  .kt-sidebar-backdrop {
+    display: block;
+  }
+
+  .kt-workbench.mobile-sidebar-open .kt-sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .kt-sidebar-resize-handle { display: none; }
 
-  /* Titlebar horizontal scroll */
-  .kt-titlebar {
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding-left: 0;
-  }
-
-  .kt-menubar { padding: 0; }
-
-  .kt-menubar-item {
-    padding: 6px 10px;
-    font-size: 12px;
-  }
-
+  /* Title bar compact */
+  .kt-titlebar { padding-left: 0; }
+  .kt-menubar { padding: 0 2px; }
+  .kt-menubar-item { padding: 6px 8px; font-size: 12px; }
   .kt-titlebar-title { display: none; }
 
+  /* Activity bar tighter */
+  .kt-activity-item { width: 48px; height: 44px; }
+
   /* Editor tabs compact */
-  .kt-tabbar {
-    height: 34px;
-    min-height: 34px;
-  }
-
-  .kt-tab {
-    padding: 0 4px 0 8px;
-    min-width: 70px;
-    max-width: 160px;
-  }
-
+  .kt-tabbar { height: 34px; min-height: 34px; }
+  .kt-tab { padding: 0 4px 0 8px; min-width: 60px; max-width: 140px; }
   .kt-tab .tab-label { font-size: 11px; }
 
-  /* Panel becomes bottom sheet */
-  .kt-panel-container {
-    max-height: 60vh;
-  }
+  /* Panel as bottom sheet */
+  .kt-panel-container { max-height: 55vh; }
 
-  /* Statusbar compact */
+  /* Status bar compact */
   .kt-statusbar { font-size: 10px; }
-
   .kt-statusbar-item { padding: 0 4px; }
 
   /* Welcome compact */
   .kt-editor-empty { padding: 24px 16px; }
-  .kt-editor-empty .ketor-mark { font-size: 22px; }
-  .kt-editor-empty .ketor-sub { font-size: 11px; margin-bottom: 20px; }
-  .kt-editor-empty .ketor-actions { margin-bottom: 24px; }
-  .kt-editor-empty .ketor-hints {
-    grid-template-columns: 1fr;
-  }
+  .kt-editor-empty .ketor-mark { font-size: 22px; letter-spacing: 0.12em; }
+  .kt-editor-empty .ketor-sub { font-size: 11px; margin-bottom: 20px; padding: 0 12px; }
+  .kt-editor-empty .ketor-actions { margin-bottom: 24px; gap: 6px; }
+  .kt-editor-empty .ketor-hints { grid-template-columns: 1fr; }
+  .kt-editor-empty .ketor-hint { padding: 12px; }
+}
+
+/* Landscape phone -- hide welcome hints */
+@media (max-width: 900px) and (max-height: 500px) {
+  .kt-editor-empty { padding: 12px; }
+  .kt-editor-empty .ketor-hints { display: none; }
+  .kt-editor-empty .ketor-sub { margin-bottom: 12px; }
+  .kt-editor-empty .ketor-actions { margin-bottom: 12px; }
 }
