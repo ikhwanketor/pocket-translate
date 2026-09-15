@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ketor -- Workbench Preview</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <link rel="stylesheet" href="./assets/css/vscode-theme.css" />
+  <link rel="stylesheet" href="./assets/css/vscode-workbench.css" />
+  <link rel="stylesheet" href="./assets/css/vscode-components.css" />
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Hidden file inputs (commands trigger these) -->
+  <input type="file" data-ketor-role="rom" style="display:none" />
+  <input type="file" data-ketor-role="table" style="display:none" />
+
+  <!-- Batch 12a -->
+  <script src="./assets/js/ui/icons.js"></script>
+
+  <!-- Batch 12b -->
+  <script src="./assets/js/ui/ketor-command-registry.js"></script>
+  <script src="./assets/js/ui/ketor-menubar.js"></script>
+  <script src="./assets/js/ui/ketor-activitybar.js"></script>
+  <script src="./assets/js/ui/ketor-sidebar.js"></script>
+
+  <!-- Batch 12c -->
+  <script src="./assets/js/ui/ketor-context.js"></script>
+  <script src="./assets/js/ui/ketor-tasks-registry.js"></script>
+  <script src="./assets/js/ui/ketor-editor.js"></script>
+  <script src="./assets/js/ui/ketor-panel.js"></script>
+
+  <!-- Batch 12d -->
+  <script src="./assets/js/ui/ketor-statusbar.js"></script>
+  <script src="./assets/js/ui/ketor-about.js"></script>
+  <script src="./assets/js/ui/ketor-workbench.js"></script>
+
+  <script>
+    (function () {
+      var React = window.React;
+      var ReactDOM = window.ReactDOM;
+      if (!React || !ReactDOM) {
+        document.body.innerHTML =
+          '<div style="padding:24px;color:#f48771;font-family:monospace">' +
+          'React failed to load. Check your internet connection.</div>';
+        return;
+      }
+      if (!window.Ketor || !window.Ketor.ui || !window.Ketor.ui.KetorWorkbench) {
+        document.body.innerHTML =
+          '<div style="padding:24px;color:#f48771;font-family:monospace">' +
+          'Ketor workbench failed to load. Check console for errors.</div>';
+        return;
+      }
+      var root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(React.createElement(window.Ketor.ui.KetorWorkbench, null));
+    })();
+  </script>
+</body>
+</html>
