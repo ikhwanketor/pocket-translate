@@ -107,6 +107,17 @@
      double-click navigation events.
    ============================================================ */
 
+/* ============================================================
+   Ketor - Workbench (v11)
+   ------------------------------------------------------------
+   Batch 14a-fix #3:
+   - Double-click navigation from project tree now also opens
+     the target tab (Table, Translation, Hex) if not already
+     open, and focuses it if it exists in another group.
+   - Panel bottom stays visible in all activities (v10).
+   - Welcome screen, tab behavior, all previous fixes kept.
+   ============================================================ */
+
 (function (global) {
   'use strict';
 
@@ -122,56 +133,44 @@
   var useMemo = React.useMemo;
 
   var ACTIVITY_META = {
-    project: {
-      icon: 'folder',
-      title: 'Project',
-      sidebarOnly: true
-    },
+    project: { icon: 'folder', title: 'Project', sidebarOnly: true },
     table: {
-      icon: 'file-code',
-      title: 'Table',
+      icon: 'file-code', title: 'Table',
       placeholderTitle: 'Table Workspace',
       placeholderHint: 'Generate, load, and edit .tbl character tables. Coming in the next batch.'
     },
     search: {
-      icon: 'search',
-      title: 'Search Text',
+      icon: 'search', title: 'Search Text',
       placeholderTitle: 'Search Text',
       placeholderHint: 'Extract texts, search in-game strings, and assign them to groups. Coming in the next batch.'
     },
     translation: {
-      icon: 'globe',
-      title: 'Translation',
+      icon: 'globe', title: 'Translation',
       placeholderTitle: 'Translation Workspace',
       placeholderHint: 'Extract text with a .tbl table, edit translations, auto-relocate overflow.'
     },
     hex: {
-      icon: 'hex',
-      title: 'Hex Editor',
+      icon: 'hex', title: 'Hex Editor',
       placeholderTitle: 'Hex Editor',
       placeholderHint: 'Byte inspector with sections, pointers, categories, and Monkey-Moore relative search.'
     },
     tile: {
-      icon: 'paintcan',
-      title: 'Tile Editor',
+      icon: 'paintcan', title: 'Tile Editor',
       placeholderTitle: 'Tile Editor',
       placeholderHint: 'Edit tile graphics (CHR, VRAM, NCGR, and other tile formats).'
     },
     font: {
-      icon: 'symbol-color',
-      title: 'Font Editor',
+      icon: 'symbol-color', title: 'Font Editor',
       placeholderTitle: 'Font Editor',
       placeholderHint: 'Detect and edit font tiles across supported consoles.'
     },
     patch: {
-      icon: 'package',
-      title: 'Patch & Export',
+      icon: 'package', title: 'Patch & Export',
       placeholderTitle: 'Patch & Export',
       placeholderHint: 'Generate IPS, export ROM, import/export project state.'
     },
     tests: {
-      icon: 'beaker',
-      title: 'Tests',
+      icon: 'beaker', title: 'Tests',
       placeholderTitle: 'Test Suite',
       placeholderHint: 'Unit tests and preview pipeline checks per workflow.'
     }
@@ -483,12 +482,45 @@
       return function () { Ketor.ui.setActiveActivityExternal = null; };
     }, []);
 
+    // Navigation event handlers (double-click from project tree)
     useEffect(function () {
+      function findTabLocation(groups, tabId) {
+        for (var i = 0; i < groups.length; i++) {
+          for (var j = 0; j < groups[i].tabs.length; j++) {
+            if (groups[i].tabs[j].id === tabId) {
+              return groups[i].id;
+            }
+          }
+        }
+        return null;
+      }
+
+      function ensureTabOpen(activityId) {
+        var meta = ACTIVITY_META[activityId] || {};
+        if (meta.sidebarOnly) return;
+        var groups = groupsRef.current || [];
+        var tabId = 'activity:' + activityId;
+        var existingGroupId = findTabLocation(groups, tabId);
+        if (existingGroupId) {
+          actionsRef.current.setActiveTab(existingGroupId, tabId);
+          return;
+        }
+        var gid = groups[0] ? groups[0].id : 'group-1';
+        actionsRef.current.openTab(gid, {
+          id: tabId,
+          kind: activityId,
+          title: meta.title || activityId,
+          icon: meta.icon || 'file',
+          payload: { activity: activityId }
+        });
+      }
+
       function onNavigateActivity(ev) {
         var d = ev && ev.detail ? ev.detail : null;
         if (!d || !d.activity) return;
         var A = actionsRef.current;
         A.setActiveActivity(d.activity);
+        ensureTabOpen(d.activity);
         A.appendLog('info',
           'Navigate to ' + (ACTIVITY_META[d.activity] ? ACTIVITY_META[d.activity].title : d.activity) +
           (d.source ? ' (from ' + d.source + ')' : ''),
@@ -496,6 +528,7 @@
         A.setPanelVisible(true);
         A.setPanelActiveTab('log');
       }
+
       function onNavigateHex(ev) {
         var d = ev && ev.detail ? ev.detail : null;
         if (!d) return;
@@ -507,9 +540,11 @@
           (d.source ? ' (from ' + d.source + ')' : ''),
           'navigate');
         A.setActiveActivity('hex');
+        ensureTabOpen('hex');
         A.setPanelVisible(true);
         A.setPanelActiveTab('log');
       }
+
       window.addEventListener('ketor:navigate-activity', onNavigateActivity);
       window.addEventListener('ketor:navigate-hex', onNavigateHex);
       return function () {
