@@ -583,6 +583,9 @@
           if (Ketor.project && Ketor.project.setRomFromLoad) {
             Ketor.project.setRomFromLoad(res, sys);
           }
+          if (Ketor.table && Ketor.table.setRomFromLoad) {
+            Ketor.table.setRomFromLoad(res, sys);
+          }
           window.dispatchEvent(new CustomEvent('ketor:rom-loaded', {
             detail: { name: res.name, size: res.size, system: sys }
           }));
