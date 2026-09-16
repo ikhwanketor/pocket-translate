@@ -8,6 +8,8 @@
    Ketor - Table Sidebar (v3, Monkey-Moore layout)
    ============================================================ */
 
+/* Ketor - Table Sidebar v4 (multi-sample + editable wildcard) */
+
 (function (global) {
   'use strict';
   var K = global.Ketor = global.Ketor || {};
@@ -40,22 +42,36 @@
   function TableSidebar() {
     var t = K.table.useTable();
 
-    var onKeyword = uC(function (ev) { K.table.setKeyword(ev.target.value); }, []);
-    var onWildChar = uC(function (ev) { K.table.setWildcardChar(ev.target.value); }, []);
+    var onSample = uC(function (ev) {
+      K.table.setSampleText(ev.target.value);
+    }, []);
+
+    var onWildChar = uC(function (ev) {
+      var v = ev.target.value;
+      K.table.setWildcardChar(v);
+    }, []);
+
     var onHistory = uC(function (ev) {
       var v = ev.target.value;
-      if (v) K.table.setKeyword(v);
+      if (v) K.table.setSampleText(v);
     }, []);
+
     var onSearch = uC(function () { K.table.runSearch(); }, []);
+
     var onLoadFile = uC(function () {
       var inp = document.getElementById('kt-input-table');
       if (inp) inp.click();
     }, []);
 
+    var sampleLines = String(t.sampleText || '')
+      .split('\n')
+      .map(function (s) { return s.trim(); })
+      .filter(function (s) { return s.length > 0; });
+    var sampleCount = sampleLines.length;
+
     return e('div', { style: { paddingBottom: 16 } },
 
       e(Section, { title: 'Search Parameters' },
-        // Mode
         e('div', { style: { display: 'flex', gap: 8, marginBottom: 8 } },
           e('label', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer' } },
             e('input', {
@@ -77,19 +93,28 @@
           )
         ),
 
-        // Keyword
         e('textarea', {
           className: 'kt-textarea',
           placeholder: t.searchMode === 'value-scan'
             ? 'Values e.g., 41 42 43'
-            : 'Text in-game e.g., My3name3s3Deepseek',
-          value: t.keyword,
-          onChange: onKeyword,
-          rows: 2,
-          style: { minHeight: 48, fontFamily: 'var(--kt-font-mono)', fontSize: 12, marginBottom: 6 }
+            : 'text in-game e.g., PRESS START',
+          value: t.sampleText,
+          onChange: onSample,
+          rows: 4,
+          style: {
+            minHeight: 76,
+            fontFamily: 'var(--kt-font-mono)',
+            fontSize: 12,
+            marginBottom: 6
+          }
         }),
 
-        // History dropdown
+        e('div', {
+          style: { fontSize: 10, opacity: 0.6, marginBottom: 6 }
+        }, t.searchMode === 'value-scan'
+            ? 'Values separated by space or comma.'
+            : sampleCount + ' sample(s). One text per line, longer = more accurate.'),
+
         t.searchHistory.length > 0 ? e('select', {
           className: 'kt-select',
           style: { fontSize: 11, marginBottom: 6 },
@@ -98,21 +123,25 @@
         },
           e('option', { value: '' }, 'History (' + t.searchHistory.length + ')'),
           t.searchHistory.map(function (h, i) {
-            return e('option', { key: 'h' + i, value: h }, h);
+            var label = h.split('\n')[0];
+            return e('option', { key: 'h' + i, value: h }, label.length > 40 ? label.slice(0, 40) + '...' : label);
           })
         ) : null,
 
-        // Search button
         e('button', {
           type: 'button',
           className: 'kt-btn',
           style: { width: '100%', marginBottom: 8 },
           onClick: onSearch,
-          disabled: t.isSearching || !t.romBytes || !String(t.keyword || '').trim()
+          disabled: t.isSearching || !t.romBytes || sampleCount === 0
         }, t.isSearching ? 'Searching...' : 'Search'),
 
-        // Wildcard checkbox + char
-        e('div', { style: { display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', fontSize: 11 } },
+        e('div', {
+          style: {
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '3px 0', fontSize: 11
+          }
+        },
           e('label', { style: { display: 'flex', alignItems: 'center', gap: 4, flex: 1 } },
             e('input', {
               type: 'checkbox',
@@ -126,21 +155,32 @@
             value: t.wildcardChar,
             onChange: onWildChar,
             maxLength: 1,
-            disabled: !t.wildcardEnabled,
+            title: 'Wildcard character (any single char)',
             style: {
-              width: 28, textAlign: 'center', fontFamily: 'var(--kt-font-mono)',
-              background: 'var(--kt-input-bg)', color: 'var(--kt-input-fg)',
-              border: '1px solid var(--kt-input-border)', borderRadius: 2,
-              padding: '2px 4px', fontSize: 12
+              width: 32,
+              textAlign: 'center',
+              fontFamily: 'var(--kt-font-mono)',
+              background: 'var(--kt-input-bg)',
+              color: 'var(--kt-input-fg)',
+              border: '1px solid var(--kt-input-border)',
+              borderRadius: 2,
+              padding: '2px 4px',
+              fontSize: 12,
+              cursor: 'text'
             }
           })
         ),
 
-        // Byte order (8-bit / 16-bit) -- inline
-        e('div', { style: { display: 'flex', gap: 8, alignItems: 'center', padding: '3px 0', fontSize: 11 } },
+        e('div', {
+          style: {
+            display: 'flex', gap: 8, alignItems: 'center',
+            padding: '3px 0', fontSize: 11
+          }
+        },
           e('label', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
             e('input', {
-              type: 'radio', name: 'kt-mm-bw',
+              type: 'radio',
+              name: 'kt-mm-bw',
               checked: t.byteWidth === 8,
               onChange: function () { K.table.setByteWidth(8); }
             }),
@@ -148,7 +188,8 @@
           ),
           e('label', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
             e('input', {
-              type: 'radio', name: 'kt-mm-bw',
+              type: 'radio',
+              name: 'kt-mm-bw',
               checked: t.byteWidth === 16,
               onChange: function () { K.table.setByteWidth(16); }
             }),
@@ -204,10 +245,13 @@
 
       t.status ? e('div', {
         style: {
-          padding: '8px 12px', fontSize: 11,
-          color: 'var(--kt-sidebar-fg)', opacity: 0.8,
+          padding: '8px 12px',
+          fontSize: 11,
+          color: 'var(--kt-sidebar-fg)',
+          opacity: 0.8,
           borderTop: '1px solid var(--kt-widget-border-default)',
-          marginTop: 8, wordBreak: 'break-word'
+          marginTop: 8,
+          wordBreak: 'break-word'
         }
       }, t.status) : null
     );
