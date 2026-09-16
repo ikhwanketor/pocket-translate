@@ -7,6 +7,15 @@
    activity is active.
    ============================================================ */
 
+/* ============================================================
+   Ketor - Project Activity (state + sidebar)
+   ------------------------------------------------------------
+   Fixed Batch 14a:
+   - Double-click dispatches 'ketor:navigate-activity' and
+     'ketor:navigate-hex' events with source + label so the
+     workbench can log them to the panel.
+   ============================================================ */
+
 (function (global) {
   'use strict';
 
@@ -21,7 +30,6 @@
   var RECENT_KEY = 'ketor.recent.files';
   var RECENT_LIMIT = 20;
 
-  // ---- State ------------------------------------------------------
   var _state = {
     romName: '',
     romSize: 0,
@@ -76,7 +84,6 @@
     return R.useSyncExternalStore(subscribe, getState, getState);
   }
 
-  // ---- Helpers ----------------------------------------------------
   function formatBytes(n) {
     n = Number(n) || 0;
     if (n < 1024) return n + ' B';
@@ -242,7 +249,6 @@
     return s;
   }
 
-  // ---- Recent files -----------------------------------------------
   function loadRecent() {
     try {
       var raw = global.sessionStorage.getItem(RECENT_KEY);
@@ -271,7 +277,6 @@
     } catch (_) { }
   }
 
-  // ---- Actions ----------------------------------------------------
   function setRomFromLoad(result, systemName) {
     _set({
       romName: result.name || '',
@@ -343,6 +348,31 @@
         tables: true, groups: true, projectFiles: true, recent: false
       }
     });
+  }
+
+  // ---- Navigation event helpers -----------------------------------
+  function dispatchNavigateActivity(activityId, source, label) {
+    try {
+      global.dispatchEvent(new CustomEvent('ketor:navigate-activity', {
+        detail: {
+          activity: activityId,
+          source: source || 'project-tree',
+          label: label || ''
+        }
+      }));
+    } catch (_) { }
+  }
+
+  function dispatchNavigateHex(offset, source, label) {
+    try {
+      global.dispatchEvent(new CustomEvent('ketor:navigate-hex', {
+        detail: {
+          offset: Number(offset) || 0,
+          source: source || 'project-tree',
+          label: label || ''
+        }
+      }));
+    } catch (_) { }
   }
 
   // ---- React Sidebar ----------------------------------------------
@@ -440,19 +470,20 @@
   function ProjectSidebar() {
     var p = useProject();
 
-    var onNavigateToActivity = uC(function (activityId) {
-      if (typeof K.ui.setActiveActivityExternal === 'function') {
-        K.ui.setActiveActivityExternal(activityId);
-      }
+    var onGoTable = uC(function () {
+      dispatchNavigateActivity('table', 'project-tree', 'Tables');
     }, []);
 
-    var onOpenHexAt = uC(function (offset) {
-      // Placeholder: future hex editor navigation
-      try {
-        global.dispatchEvent(new CustomEvent('ketor:navigate-hex', {
-          detail: { offset: offset }
-        }));
-      } catch (_) { }
+    var onGoTranslation = uC(function (groupName) {
+      dispatchNavigateActivity('translation', 'project-tree', groupName || 'Groups');
+    }, []);
+
+    var onGoSearch = uC(function () {
+      dispatchNavigateActivity('search', 'project-tree', 'Groups');
+    }, []);
+
+    var onGoHex = uC(function (offset, label) {
+      dispatchNavigateHex(offset, 'project-tree', label || '');
     }, []);
 
     var headerKeys = Object.keys(p.header || {});
@@ -483,7 +514,6 @@
 
     return e('div', { style: { paddingBottom: 16 } },
 
-      // ROM info
       e(TreeSection, {
         title: 'ROM',
         expanded: p.expanded.rom,
@@ -496,7 +526,6 @@
         e(InfoRow, { label: 'SHA1', value: p.sha1 || '...' })
       ),
 
-      // Header details
       headerKeys.length > 0 ? e(TreeSection, {
         title: 'Header Details',
         expanded: p.expanded.header,
@@ -517,7 +546,6 @@
         }, p.showAllHeader ? 'Show less' : 'Show all (' + headerKeys.length + ')') : null
       ) : null,
 
-      // Sections
       e(TreeSection, {
         title: 'Sections',
         expanded: p.expanded.sections,
@@ -541,12 +569,11 @@
                 selected: p.selectedNode === sec.id,
                 tooltip: 'Double-click to open Hex Editor at 0x' + sec.start.toString(16).toUpperCase(),
                 onClick: function () { selectNode(sec.id); },
-                onDoubleClick: function () { onOpenHexAt(sec.start); }
+                onDoubleClick: function () { onGoHex(sec.start, sec.label); }
               });
             })
       ),
 
-      // Tables
       e(TreeSection, {
         title: 'Tables',
         expanded: p.expanded.tables,
@@ -557,13 +584,12 @@
           icon: 'file-code',
           meta: p.tables.length === 0 ? 'Open Table' : '',
           selected: p.selectedNode === 'tables-open',
-          tooltip: 'Open Table activity',
+          tooltip: 'Double-click opens Table activity',
           onClick: function () { selectNode('tables-open'); },
-          onDoubleClick: function () { onNavigateToActivity('table'); }
+          onDoubleClick: onGoTable
         })
       ),
 
-      // Groups
       e(TreeSection, {
         title: 'Groups',
         expanded: p.expanded.groups,
@@ -573,11 +599,11 @@
           ? e(TreeLeaf, {
               label: 'No groups yet',
               icon: 'folder',
-              meta: 'Create in Search Text',
+              meta: 'Create in Search',
               selected: p.selectedNode === 'groups-empty',
-              tooltip: 'Open Search Text activity',
+              tooltip: 'Double-click opens Search Text activity',
               onClick: function () { selectNode('groups-empty'); },
-              onDoubleClick: function () { onNavigateToActivity('search'); }
+              onDoubleClick: onGoSearch
             })
           : p.groups.map(function (g) {
               return e(TreeLeaf, {
@@ -586,15 +612,13 @@
                 icon: 'folder',
                 meta: (g.textIds ? g.textIds.length + ' items' : ''),
                 selected: p.selectedNode === ('group:' + g.id),
+                tooltip: 'Double-click opens Translation activity',
                 onClick: function () { selectNode('group:' + g.id); },
-                onDoubleClick: function () {
-                  onNavigateToActivity('translation');
-                }
+                onDoubleClick: function () { onGoTranslation(g.name); }
               });
             })
       ),
 
-      // Project files
       e(TreeSection, {
         title: 'Project Files',
         expanded: p.expanded.projectFiles,
@@ -609,7 +633,6 @@
         })
       ),
 
-      // Recent files
       p.recent.length > 0 ? e(TreeSection, {
         title: 'Recent',
         expanded: p.expanded.recent,
@@ -641,10 +664,8 @@
     );
   }
 
-  // Initialize recent from sessionStorage
   _set({ recent: loadRecent() });
 
-  // Expose
   K.project = {
     getState: getState,
     subscribe: subscribe,
@@ -658,7 +679,6 @@
     formatBytes: formatBytes
   };
 
-  // Register sidebar provider
   K.ui.registerSidebarProvider('project', ProjectSidebar);
 
 })(window);

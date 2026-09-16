@@ -83,6 +83,29 @@
    shows welcome screen even if tabs exist. After ROM load,
    switch to Project activity.
    ============================================================ */
+   
+/* ============================================================
+   Ketor - Workbench (v9)
+   ------------------------------------------------------------
+   Fixed Batch 14a issues:
+   - Removed isProjectActivity editor override. Project activity
+     now renders normal EditorColumn: existing tab stays visible,
+     welcome screen shown if no tab open.
+   - Panel bottom hidden when Project activity is active.
+   - Listens to 'ketor:navigate-activity' and 'ketor:navigate-hex'
+     events (dispatched by project tree double-click). Logs each
+     navigation to the panel Log and switches activity.
+   ============================================================ */
+
+/* ============================================================
+   Ketor - Workbench (v10)
+   ------------------------------------------------------------
+   Batch 14a-fix #2:
+   - Removed hidePanel prop. Panel bottom shows in all
+     activities including Project.
+   - Kept all previous fixes: welcome screen, tab behavior,
+     double-click navigation events.
+   ============================================================ */
 
 (function (global) {
   'use strict';
@@ -451,7 +474,6 @@
       });
     }, []);
 
-    // External activity setter (used by sidebar tree double-click)
     useEffect(function () {
       Ketor.ui.setActiveActivityExternal = function (id) {
         if (actionsRef.current && typeof actionsRef.current.setActiveActivity === 'function') {
@@ -461,7 +483,41 @@
       return function () { Ketor.ui.setActiveActivityExternal = null; };
     }, []);
 
-    // ---- ROM input handler ----
+    useEffect(function () {
+      function onNavigateActivity(ev) {
+        var d = ev && ev.detail ? ev.detail : null;
+        if (!d || !d.activity) return;
+        var A = actionsRef.current;
+        A.setActiveActivity(d.activity);
+        A.appendLog('info',
+          'Navigate to ' + (ACTIVITY_META[d.activity] ? ACTIVITY_META[d.activity].title : d.activity) +
+          (d.source ? ' (from ' + d.source + ')' : ''),
+          'navigate');
+        A.setPanelVisible(true);
+        A.setPanelActiveTab('log');
+      }
+      function onNavigateHex(ev) {
+        var d = ev && ev.detail ? ev.detail : null;
+        if (!d) return;
+        var off = Number(d.offset) || 0;
+        var hex = '0x' + off.toString(16).toUpperCase().padStart(6, '0');
+        var A = actionsRef.current;
+        A.appendLog('info',
+          'Open Hex at ' + hex + (d.label ? ' - ' + d.label : '') +
+          (d.source ? ' (from ' + d.source + ')' : ''),
+          'navigate');
+        A.setActiveActivity('hex');
+        A.setPanelVisible(true);
+        A.setPanelActiveTab('log');
+      }
+      window.addEventListener('ketor:navigate-activity', onNavigateActivity);
+      window.addEventListener('ketor:navigate-hex', onNavigateHex);
+      return function () {
+        window.removeEventListener('ketor:navigate-activity', onNavigateActivity);
+        window.removeEventListener('ketor:navigate-hex', onNavigateHex);
+      };
+    }, []);
+
     useEffect(function () {
       var input = document.getElementById('kt-input-rom');
       if (!input) return;
@@ -513,7 +569,6 @@
       return function () { input.removeEventListener('change', onChange); };
     }, []);
 
-    // ---- Table input handler ----
     useEffect(function () {
       var input = document.getElementById('kt-input-table');
       if (!input) return;
@@ -534,7 +589,6 @@
       return function () { input.removeEventListener('change', onChange); };
     }, []);
 
-    // ---- CSV input handler ----
     useEffect(function () {
       var input = document.getElementById('kt-input-csv');
       if (!input) return;
@@ -562,7 +616,6 @@
     var handleActivityClick = useCallback(function (activityId) {
       actions.setActiveActivity(activityId);
       var meta = ACTIVITY_META[activityId] || {};
-      // Sidebar-only activities (e.g. project) do not open tabs
       if (meta.sidebarOnly) return;
       var targetGroupId = state.editorGroups[0] ? state.editorGroups[0].id : 'group-1';
       actions.openTab(targetGroupId, {
@@ -593,8 +646,6 @@
         e('div', { className: 'ap-hint' }, 'No provider registered for tab kind: ' + tab.kind)
       );
     }, [wb]);
-
-    var isProjectActivity = state.activeActivity === 'project';
 
     var rootClasses = ['kt-workbench'];
     if (!state.activityBarVisible) rootClasses.push('no-activitybar');
@@ -672,43 +723,21 @@
           })
         : null,
 
-      isProjectActivity
-        ? e('div', { className: 'kt-editor-column' },
-            e('div', { className: 'kt-editor-empty' },
-              e('div', { className: 'ketor-mark' }, 'KETOR'),
-              e('div', { className: 'ketor-sub' },
-                'Kernel Engine Translation for Old & Retro Games'),
-              e('div', { className: 'ketor-actions' },
-                e('button', {
-                  type: 'button', className: 'kt-btn',
-                  onClick: function () { handleWelcomeAction('load-rom'); }
-                }, 'Load ROM'),
-                e('button', {
-                  type: 'button', className: 'kt-btn',
-                  onClick: function () { handleWelcomeAction('open-project'); }
-                }, 'Open Project'),
-                e('button', {
-                  type: 'button', className: 'kt-btn',
-                  onClick: function () { handleWelcomeAction('recent-files'); }
-                }, 'Recent Files')
-              )
-            )
-          )
-        : e(EditorColumn, {
-            state: state,
-            actions: actions,
-            renderTabContent: renderTabContent,
-            tasks: tasks,
-            logs: logs,
-            problems: problems,
-            onWelcomeAction: handleWelcomeAction,
-            isCompact: isCompact,
-            compactHeaderTitle: compactHeaderTitle,
-            kebabOpen: kebabOpen,
-            onKebabToggle: function () { setKebabOpen(function (v) { return !v; }); },
-            onCloseKebab: function () { setKebabOpen(false); },
-            kebabAnchorRef: kebabAnchorRef
-          }),
+      e(EditorColumn, {
+        state: state,
+        actions: actions,
+        renderTabContent: renderTabContent,
+        tasks: tasks,
+        logs: logs,
+        problems: problems,
+        onWelcomeAction: handleWelcomeAction,
+        isCompact: isCompact,
+        compactHeaderTitle: compactHeaderTitle,
+        kebabOpen: kebabOpen,
+        onKebabToggle: function () { setKebabOpen(function (v) { return !v; }); },
+        onCloseKebab: function () { setKebabOpen(false); },
+        kebabAnchorRef: kebabAnchorRef
+      }),
 
       state.statusBarVisible
         ? e(Ketor.ui.KetorStatusBar, {
