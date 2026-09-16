@@ -76,6 +76,14 @@
    - input selectors via getElementById (avoids quote issues)
    ============================================================ */
 
+/* ============================================================
+   Ketor - Workbench (v8)
+   ------------------------------------------------------------
+   Adds Project activity. Project = sidebar only; editor area
+   shows welcome screen even if tabs exist. After ROM load,
+   switch to Project activity.
+   ============================================================ */
+
 (function (global) {
   'use strict';
 
@@ -91,7 +99,24 @@
   var useMemo = React.useMemo;
 
   var ACTIVITY_META = {
-    translate: {
+    project: {
+      icon: 'folder',
+      title: 'Project',
+      sidebarOnly: true
+    },
+    table: {
+      icon: 'file-code',
+      title: 'Table',
+      placeholderTitle: 'Table Workspace',
+      placeholderHint: 'Generate, load, and edit .tbl character tables. Coming in the next batch.'
+    },
+    search: {
+      icon: 'search',
+      title: 'Search Text',
+      placeholderTitle: 'Search Text',
+      placeholderHint: 'Extract texts, search in-game strings, and assign them to groups. Coming in the next batch.'
+    },
+    translation: {
       icon: 'globe',
       title: 'Translation',
       placeholderTitle: 'Translation Workspace',
@@ -103,11 +128,17 @@
       placeholderTitle: 'Hex Editor',
       placeholderHint: 'Byte inspector with sections, pointers, categories, and Monkey-Moore relative search.'
     },
-    font: {
+    tile: {
       icon: 'paintcan',
-      title: 'Font & Graphics',
-      placeholderTitle: 'Font & Graphics',
-      placeholderHint: 'Detect and edit font tiles, palettes, and graphics across supported consoles.'
+      title: 'Tile Editor',
+      placeholderTitle: 'Tile Editor',
+      placeholderHint: 'Edit tile graphics (CHR, VRAM, NCGR, and other tile formats).'
+    },
+    font: {
+      icon: 'symbol-color',
+      title: 'Font Editor',
+      placeholderTitle: 'Font Editor',
+      placeholderHint: 'Detect and edit font tiles across supported consoles.'
     },
     patch: {
       icon: 'package',
@@ -350,7 +381,8 @@
     Ketor.commands.registerCommand('ketor.view.splitEditor', function () { actions.splitEditor(); });
     Ketor.commands.registerCommand('ketor.view.appearance', function () { setThemeOpen(true); });
     Ketor.commands.registerCommand('ketor.view.theme', function () { setThemeOpen(true); });
-    Ketor.commands.registerCommand('ketor.view.showTranslate', function () { actions.setActiveActivity('translate'); });
+    Ketor.commands.registerCommand('ketor.view.showProject', function () { actions.setActiveActivity('project'); });
+    Ketor.commands.registerCommand('ketor.view.showTranslate', function () { actions.setActiveActivity('translation'); });
     Ketor.commands.registerCommand('ketor.view.showBackgroundTasks', function () {
       actions.setPanelVisible(true);
       actions.setPanelActiveTab('background');
@@ -419,6 +451,16 @@
       });
     }, []);
 
+    // External activity setter (used by sidebar tree double-click)
+    useEffect(function () {
+      Ketor.ui.setActiveActivityExternal = function (id) {
+        if (actionsRef.current && typeof actionsRef.current.setActiveActivity === 'function') {
+          actionsRef.current.setActiveActivity(id);
+        }
+      };
+      return function () { Ketor.ui.setActiveActivityExternal = null; };
+    }, []);
+
     // ---- ROM input handler ----
     useEffect(function () {
       var input = document.getElementById('kt-input-rom');
@@ -447,18 +489,13 @@
           if (Ketor.translate && Ketor.translate.setRomFromLoad) {
             Ketor.translate.setRomFromLoad(res, sys);
           }
+          if (Ketor.project && Ketor.project.setRomFromLoad) {
+            Ketor.project.setRomFromLoad(res, sys);
+          }
           window.dispatchEvent(new CustomEvent('ketor:rom-loaded', {
             detail: { name: res.name, size: res.size, system: sys }
           }));
-          var gid = groupsRef.current[0] ? groupsRef.current[0].id : 'group-1';
-          A.setActiveActivity('translate');
-          A.openTab(gid, {
-            id: 'activity:translate',
-            kind: 'translate',
-            title: 'Translation',
-            icon: 'globe',
-            payload: { activity: 'translate' }
-          });
+          A.setActiveActivity('project');
           A.setSidebarVisible(true);
           A.setPanelVisible(true);
           A.setPanelActiveTab('log');
@@ -488,9 +525,9 @@
           if (Ketor.translate && Ketor.translate.loadTableContent) {
             Ketor.translate.loadTableContent(content, f.name);
           }
-          actionsRef.current.appendLog('success', 'Table: ' + f.name, 'translate');
+          actionsRef.current.appendLog('success', 'Table: ' + f.name, 'table');
         }).catch(function (err) {
-          actionsRef.current.appendLog('error', 'Table failed: ' + (err.message || ''), 'translate');
+          actionsRef.current.appendLog('error', 'Table failed: ' + (err.message || ''), 'table');
         });
       }
       input.addEventListener('change', onChange);
@@ -525,6 +562,8 @@
     var handleActivityClick = useCallback(function (activityId) {
       actions.setActiveActivity(activityId);
       var meta = ACTIVITY_META[activityId] || {};
+      // Sidebar-only activities (e.g. project) do not open tabs
+      if (meta.sidebarOnly) return;
       var targetGroupId = state.editorGroups[0] ? state.editorGroups[0].id : 'group-1';
       actions.openTab(targetGroupId, {
         id: 'activity:' + activityId,
@@ -554,6 +593,8 @@
         e('div', { className: 'ap-hint' }, 'No provider registered for tab kind: ' + tab.kind)
       );
     }, [wb]);
+
+    var isProjectActivity = state.activeActivity === 'project';
 
     var rootClasses = ['kt-workbench'];
     if (!state.activityBarVisible) rootClasses.push('no-activitybar');
@@ -631,21 +672,43 @@
           })
         : null,
 
-      e(EditorColumn, {
-        state: state,
-        actions: actions,
-        renderTabContent: renderTabContent,
-        tasks: tasks,
-        logs: logs,
-        problems: problems,
-        onWelcomeAction: handleWelcomeAction,
-        isCompact: isCompact,
-        compactHeaderTitle: compactHeaderTitle,
-        kebabOpen: kebabOpen,
-        onKebabToggle: function () { setKebabOpen(function (v) { return !v; }); },
-        onCloseKebab: function () { setKebabOpen(false); },
-        kebabAnchorRef: kebabAnchorRef
-      }),
+      isProjectActivity
+        ? e('div', { className: 'kt-editor-column' },
+            e('div', { className: 'kt-editor-empty' },
+              e('div', { className: 'ketor-mark' }, 'KETOR'),
+              e('div', { className: 'ketor-sub' },
+                'Kernel Engine Translation for Old & Retro Games'),
+              e('div', { className: 'ketor-actions' },
+                e('button', {
+                  type: 'button', className: 'kt-btn',
+                  onClick: function () { handleWelcomeAction('load-rom'); }
+                }, 'Load ROM'),
+                e('button', {
+                  type: 'button', className: 'kt-btn',
+                  onClick: function () { handleWelcomeAction('open-project'); }
+                }, 'Open Project'),
+                e('button', {
+                  type: 'button', className: 'kt-btn',
+                  onClick: function () { handleWelcomeAction('recent-files'); }
+                }, 'Recent Files')
+              )
+            )
+          )
+        : e(EditorColumn, {
+            state: state,
+            actions: actions,
+            renderTabContent: renderTabContent,
+            tasks: tasks,
+            logs: logs,
+            problems: problems,
+            onWelcomeAction: handleWelcomeAction,
+            isCompact: isCompact,
+            compactHeaderTitle: compactHeaderTitle,
+            kebabOpen: kebabOpen,
+            onKebabToggle: function () { setKebabOpen(function (v) { return !v; }); },
+            onCloseKebab: function () { setKebabOpen(false); },
+            kebabAnchorRef: kebabAnchorRef
+          }),
 
       state.statusBarVisible
         ? e(Ketor.ui.KetorStatusBar, {

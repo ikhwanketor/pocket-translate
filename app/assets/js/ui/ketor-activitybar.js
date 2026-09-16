@@ -23,6 +23,13 @@
    layout. Parent passes orientation prop.
    ============================================================ */
 
+/* ============================================================
+   Ketor - Activity Bar
+   ------------------------------------------------------------
+   Vertical (default, desktop/tablet landscape) or horizontal
+   (compact mode). Item list updated for the new workflow.
+   ============================================================ */
+
 (function (global) {
   'use strict';
 
@@ -85,9 +92,13 @@
   }
 
   Ketor.ui.DEFAULT_ACTIVITY_ITEMS = [
-    { id: 'translate', icon: 'globe', tooltip: 'Translate' },
+    { id: 'project', icon: 'folder', tooltip: 'Project (ROM + files + groups)' },
+    { id: 'table', icon: 'file-code', tooltip: 'Table (generate / load / edit)' },
+    { id: 'search', icon: 'search', tooltip: 'Search Text (extract + mark + group)' },
+    { id: 'translation', icon: 'globe', tooltip: 'Translation' },
     { id: 'hex', icon: 'hex', tooltip: 'Hex Editor' },
-    { id: 'font', icon: 'paintcan', tooltip: 'Font & Graphics' },
+    { id: 'tile', icon: 'paintcan', tooltip: 'Tile Editor' },
+    { id: 'font', icon: 'symbol-color', tooltip: 'Font Editor' },
     { id: 'patch', icon: 'package', tooltip: 'Patch & Export' },
     { id: 'tests', icon: 'beaker', tooltip: 'Tests' }
   ];

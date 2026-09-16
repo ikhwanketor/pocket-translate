@@ -1,0 +1,664 @@
+/* ============================================================
+   Ketor - Project Activity (state + sidebar)
+   ------------------------------------------------------------
+   Sidebar only. Shows ROM info, header details (Show All toggle),
+   Sections tree, Tables, Groups, Project Files, Recent Files.
+   No editor tab. Editor area shows welcome screen when this
+   activity is active.
+   ============================================================ */
+
+(function (global) {
+  'use strict';
+
+  var K = global.Ketor = global.Ketor || {};
+  K.ui = K.ui || {};
+  var R = global.React;
+  if (!R) return;
+  var e = R.createElement;
+  var uS = R.useState;
+  var uC = R.useCallback;
+
+  var RECENT_KEY = 'ketor.recent.files';
+  var RECENT_LIMIT = 20;
+
+  // ---- State ------------------------------------------------------
+  var _state = {
+    romName: '',
+    romSize: 0,
+    romSystem: 'Unknown',
+    romBytes: null,
+    crc32: '',
+    sha1: '',
+    header: {},
+    showAllHeader: false,
+    sections: [],
+    tables: [],
+    groups: [],
+    expanded: {
+      rom: true,
+      header: false,
+      sections: false,
+      tables: true,
+      groups: true,
+      projectFiles: true,
+      recent: false
+    },
+    selectedNode: '',
+    recent: []
+  };
+
+  var _listeners = new Set();
+
+  function _set(patch) {
+    var changed = false;
+    var next = _state;
+    Object.keys(patch).forEach(function (k) {
+      if (_state[k] !== patch[k]) {
+        if (!changed) { next = Object.assign({}, _state); changed = true; }
+        next[k] = patch[k];
+      }
+    });
+    if (changed) { _state = next; _notify(); }
+  }
+
+  function _notify() {
+    _listeners.forEach(function (fn) { try { fn(); } catch (_) { } });
+  }
+
+  function getState() { return _state; }
+  function subscribe(fn) {
+    if (typeof fn !== 'function') return function () { };
+    _listeners.add(fn);
+    return function () { _listeners.delete(fn); };
+  }
+
+  function useProject() {
+    return R.useSyncExternalStore(subscribe, getState, getState);
+  }
+
+  // ---- Helpers ----------------------------------------------------
+  function formatBytes(n) {
+    n = Number(n) || 0;
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(2) + ' MB';
+    return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+  }
+
+  function bytesToHex(buf) {
+    var s = '';
+    for (var i = 0; i < buf.length; i++) {
+      s += (buf[i] & 0xFF).toString(16).padStart(2, '0');
+    }
+    return s;
+  }
+
+  var _crc32Table = (function () {
+    var table = new Uint32Array(256);
+    for (var i = 0; i < 256; i++) {
+      var c = i;
+      for (var k = 0; k < 8; k++) {
+        c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      }
+      table[i] = c >>> 0;
+    }
+    return table;
+  })();
+
+  function computeCrc32(bytes) {
+    var crc = 0xFFFFFFFF;
+    for (var i = 0; i < bytes.length; i++) {
+      crc = (_crc32Table[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8)) >>> 0;
+    }
+    return ((crc ^ 0xFFFFFFFF) >>> 0);
+  }
+
+  function computeSha1(bytes) {
+    if (!global.crypto || !global.crypto.subtle) {
+      return Promise.resolve('');
+    }
+    var slice = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    return global.crypto.subtle.digest('SHA-1', slice).then(function (hash) {
+      return bytesToHex(new Uint8Array(hash)).toUpperCase();
+    }).catch(function () { return ''; });
+  }
+
+  function parseHeader(bytes, systemName) {
+    var sys = String(systemName || '').toUpperCase();
+    var info = {};
+    try {
+      if (sys === 'NES') {
+        if (bytes.length > 16 && bytes[0] === 0x4E && bytes[1] === 0x45
+            && bytes[2] === 0x53 && bytes[3] === 0x1A) {
+          info['Format'] = 'iNES';
+          info['PRG Banks'] = bytes[4] + ' x 16 KB';
+          info['CHR Banks'] = bytes[5] + ' x 8 KB';
+          info['Mapper'] = (((bytes[7] & 0xF0) | (bytes[6] >> 4)) & 0xFF);
+          info['Mirroring'] = (bytes[6] & 1) ? 'Vertical' : 'Horizontal';
+          info['Battery'] = (bytes[6] & 2) ? 'Yes' : 'No';
+          info['Trainer'] = (bytes[6] & 4) ? 'Yes' : 'No';
+          info['Four-screen'] = (bytes[6] & 8) ? 'Yes' : 'No';
+        }
+      } else if (sys === 'GAME BOY' || sys === 'GBC' || sys === 'GB') {
+        if (bytes.length > 0x150) {
+          info['Format'] = (bytes[0x143] & 0x80) ? 'CGB' : 'DMG';
+          var title = '';
+          for (var i = 0x134; i < 0x144; i++) {
+            if (bytes[i] === 0) break;
+            if (bytes[i] >= 0x20 && bytes[i] <= 0x7E) {
+              title += String.fromCharCode(bytes[i]);
+            }
+          }
+          info['Title'] = title.trim() || '(empty)';
+          info['CGB Flag'] = '0x' + bytes[0x143].toString(16).toUpperCase().padStart(2, '0');
+          info['SGB Flag'] = '0x' + bytes[0x146].toString(16).toUpperCase().padStart(2, '0');
+          info['Cartridge Type'] = '0x' + bytes[0x147].toString(16).toUpperCase().padStart(2, '0');
+          info['ROM Size Code'] = '0x' + bytes[0x148].toString(16).toUpperCase().padStart(2, '0');
+          info['RAM Size Code'] = '0x' + bytes[0x149].toString(16).toUpperCase().padStart(2, '0');
+        }
+      } else if (sys === 'GBA') {
+        if (bytes.length > 0xC0) {
+          info['Format'] = 'GBA';
+          var title2 = '';
+          for (var j = 0xA0; j < 0xAC; j++) {
+            if (bytes[j] === 0) break;
+            if (bytes[j] >= 0x20 && bytes[j] <= 0x7E) {
+              title2 += String.fromCharCode(bytes[j]);
+            }
+          }
+          info['Title'] = title2.trim() || '(empty)';
+          var gc = '';
+          for (var k = 0xAC; k < 0xB0; k++) {
+            if (bytes[k] >= 0x20 && bytes[k] <= 0x7E) gc += String.fromCharCode(bytes[k]);
+          }
+          info['Game Code'] = gc || '(empty)';
+          var mk = '';
+          for (var m = 0xB0; m < 0xB2; m++) {
+            if (bytes[m] >= 0x20 && bytes[m] <= 0x7E) mk += String.fromCharCode(bytes[m]);
+          }
+          info['Maker Code'] = mk || '(empty)';
+          info['Version'] = bytes[0xBC];
+          info['Header Checksum'] = '0x' + bytes[0xBD].toString(16).toUpperCase().padStart(2, '0');
+        }
+      } else if (sys === 'SNES') {
+        var bases = [0x7FC0, 0x7FC0 + 0x200, 0xFFC0, 0xFFC0 + 0x200];
+        for (var b = 0; b < bases.length; b++) {
+          var off = bases[b];
+          if (off + 0x20 > bytes.length) continue;
+          var t3 = '';
+          for (var t = off; t < off + 21; t++) {
+            if (bytes[t] === 0) break;
+            if (bytes[t] >= 0x20 && bytes[t] <= 0x7E) t3 += String.fromCharCode(bytes[t]);
+          }
+          if (t3.trim().length > 0) {
+            info['Format'] = 'SNES';
+            info['Title'] = t3.trim();
+            info['Header Offset'] = '0x' + off.toString(16).toUpperCase();
+            info['Map Mode'] = '0x' + bytes[off + 0x15].toString(16).toUpperCase().padStart(2, '0');
+            info['ROM Size Code'] = '0x' + bytes[off + 0x17].toString(16).toUpperCase().padStart(2, '0');
+            info['SRAM Size Code'] = '0x' + bytes[off + 0x18].toString(16).toUpperCase().padStart(2, '0');
+            info['Region'] = '0x' + bytes[off + 0x19].toString(16).toUpperCase().padStart(2, '0');
+            break;
+          }
+        }
+      } else if (sys === 'NINTENDO 64') {
+        if (bytes.length > 0x40) {
+          info['Format'] = 'N64';
+          info['Clock Rate'] = '0x' + (
+            (bytes[0x0C] << 24) | (bytes[0x0D] << 16) |
+            (bytes[0x0E] << 8) | bytes[0x0F]
+          ).toString(16).toUpperCase();
+          var t4 = '';
+          for (var n = 0x20; n < 0x34; n++) {
+            if (bytes[n] >= 0x20 && bytes[n] <= 0x7E) t4 += String.fromCharCode(bytes[n]);
+          }
+          info['Title'] = t4.trim() || '(empty)';
+        }
+      }
+    } catch (_) { }
+    return info;
+  }
+
+  function buildSections(systemName) {
+    var sys = String(systemName || '').toUpperCase();
+    var s = [];
+    if (sys === 'NES') {
+      s.push({ id: 'nes-hdr', label: 'iNES Header', start: 0, end: 15 });
+      s.push({ id: 'nes-prg', label: 'PRG ROM', start: 16, end: null });
+    } else if (sys === 'GBA') {
+      s.push({ id: 'gba-hdr', label: 'ROM Header', start: 0, end: 0xBF });
+      s.push({ id: 'gba-logo', label: 'Nintendo Logo', start: 0x04, end: 0x9F });
+      s.push({ id: 'gba-code', label: 'Code Region', start: 0xC0, end: null });
+    } else if (sys === 'SNES') {
+      s.push({ id: 'snes-hdr', label: 'Internal Header', start: 0x7FC0, end: 0x7FDF });
+      s.push({ id: 'snes-code', label: 'Code + Data', start: 0x8000, end: null });
+    } else if (sys === 'GAME BOY' || sys === 'GBC' || sys === 'GB') {
+      s.push({ id: 'gb-hdr', label: 'Cartridge Header', start: 0x100, end: 0x14F });
+      s.push({ id: 'gb-code', label: 'Code Region', start: 0x150, end: null });
+    } else {
+      s.push({ id: 'hdr', label: 'Header', start: 0, end: 0xFF });
+      s.push({ id: 'body', label: 'Body', start: 0x100, end: null });
+    }
+    return s;
+  }
+
+  // ---- Recent files -----------------------------------------------
+  function loadRecent() {
+    try {
+      var raw = global.sessionStorage.getItem(RECENT_KEY);
+      if (!raw) return [];
+      var arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) { return []; }
+  }
+
+  function pushRecent(entry) {
+    try {
+      var list = loadRecent();
+      list = list.filter(function (r) {
+        return !(r.name === entry.name && r.size === entry.size);
+      });
+      list.unshift({
+        name: entry.name,
+        size: entry.size,
+        system: entry.system,
+        hash: entry.hash || '',
+        openedAt: Date.now()
+      });
+      if (list.length > RECENT_LIMIT) list = list.slice(0, RECENT_LIMIT);
+      global.sessionStorage.setItem(RECENT_KEY, JSON.stringify(list));
+      _set({ recent: list });
+    } catch (_) { }
+  }
+
+  // ---- Actions ----------------------------------------------------
+  function setRomFromLoad(result, systemName) {
+    _set({
+      romName: result.name || '',
+      romSize: result.size || 0,
+      romSystem: systemName || 'Unknown',
+      romBytes: result.data || null,
+      crc32: '',
+      sha1: '',
+      header: {},
+      showAllHeader: false,
+      sections: buildSections(systemName),
+      selectedNode: '',
+      expanded: Object.assign({}, _state.expanded, {
+        rom: true,
+        header: false,
+        sections: false,
+        tables: true,
+        groups: true,
+        projectFiles: true
+      })
+    });
+
+    if (result.data && result.data.length > 0) {
+      var crc = computeCrc32(result.data);
+      _set({ crc32: crc.toString(16).toUpperCase().padStart(8, '0') });
+
+      var hdr = parseHeader(result.data, systemName);
+      _set({ header: hdr });
+
+      computeSha1(result.data).then(function (sha) {
+        if (sha) _set({ sha1: sha });
+        pushRecent({
+          name: result.name,
+          size: result.size,
+          system: systemName,
+          hash: sha || (crc.toString(16).toUpperCase().padStart(8, '0'))
+        });
+      });
+    }
+  }
+
+  function toggleShowAllHeader() {
+    _set({ showAllHeader: !_state.showAllHeader });
+  }
+
+  function toggleExpanded(nodeId) {
+    var next = Object.assign({}, _state.expanded);
+    next[nodeId] = !next[nodeId];
+    _set({ expanded: next });
+  }
+
+  function selectNode(nodeId) {
+    _set({ selectedNode: String(nodeId || '') });
+  }
+
+  function clearRecent() {
+    try { global.sessionStorage.removeItem(RECENT_KEY); } catch (_) { }
+    _set({ recent: [] });
+  }
+
+  function reset() {
+    _set({
+      romName: '', romSize: 0, romSystem: 'Unknown', romBytes: null,
+      crc32: '', sha1: '', header: {}, showAllHeader: false,
+      sections: [], tables: [], groups: [],
+      selectedNode: '',
+      expanded: {
+        rom: true, header: false, sections: false,
+        tables: true, groups: true, projectFiles: true, recent: false
+      }
+    });
+  }
+
+  // ---- React Sidebar ----------------------------------------------
+  function TreeSection(props) {
+    var expanded = props.expanded;
+    var onToggle = props.onToggle;
+    var children = props.children;
+    var title = props.title;
+    var actions = props.actions;
+
+    return e('div', { className: 'kt-sidebar-section' },
+      e('div', {
+        className: 'kt-tree-section-header',
+        onClick: onToggle,
+        style: {
+          display: 'flex', alignItems: 'center',
+          padding: '4px 8px 4px 4px',
+          cursor: 'pointer',
+          userSelect: 'none',
+          fontSize: 11,
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          letterSpacing: '0.02em',
+          color: 'var(--kt-sidebar-title-fg)'
+        }
+      },
+        e('span', {
+          style: {
+            display: 'inline-flex',
+            transform: expanded ? 'rotate(90deg)' : 'none',
+            transition: 'transform 0.1s'
+          }
+        }, K.ui.icon('chevron-right', { size: 12 })),
+        e('span', { style: { marginLeft: 4, flex: 1 } }, title),
+        actions || null
+      ),
+      expanded ? e('div', { style: { padding: '2px 0 6px 0' } }, children) : null
+    );
+  }
+
+  function InfoRow(props) {
+    return e('div', {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: 8,
+        padding: '2px 8px 2px 24px',
+        fontSize: 11,
+        color: 'var(--kt-sidebar-fg)'
+      }
+    },
+      e('span', { style: { opacity: 0.7, flex: '0 0 auto' } }, props.label),
+      e('span', {
+        style: {
+          color: 'var(--kt-editor-fg)',
+          fontFamily: 'var(--kt-font-mono)',
+          textAlign: 'right',
+          wordBreak: 'break-all'
+        }
+      }, props.value)
+    );
+  }
+
+  function TreeLeaf(props) {
+    var selected = props.selected;
+    return e('div', {
+      onClick: props.onClick,
+      onDoubleClick: props.onDoubleClick,
+      title: props.tooltip || '',
+      style: {
+        padding: '3px 8px 3px ' + (24 + (props.indent || 0) * 12) + 'px',
+        cursor: props.onDoubleClick ? 'pointer' : 'default',
+        fontSize: 12,
+        color: 'var(--kt-sidebar-fg)',
+        background: selected ? 'var(--kt-list-active-selection-bg)' : 'transparent',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6
+      }
+    },
+      props.icon ? e('span', {
+        style: { display: 'inline-flex', flex: '0 0 auto', opacity: 0.7 }
+      }, K.ui.icon(props.icon, { size: 13 })) : null,
+      e('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' } },
+        props.label),
+      props.meta ? e('span', {
+        style: { opacity: 0.5, fontSize: 10, flex: '0 0 auto' }
+      }, props.meta) : null
+    );
+  }
+
+  function ProjectSidebar() {
+    var p = useProject();
+
+    var onNavigateToActivity = uC(function (activityId) {
+      if (typeof K.ui.setActiveActivityExternal === 'function') {
+        K.ui.setActiveActivityExternal(activityId);
+      }
+    }, []);
+
+    var onOpenHexAt = uC(function (offset) {
+      // Placeholder: future hex editor navigation
+      try {
+        global.dispatchEvent(new CustomEvent('ketor:navigate-hex', {
+          detail: { offset: offset }
+        }));
+      } catch (_) { }
+    }, []);
+
+    var headerKeys = Object.keys(p.header || {});
+    var KEY_FIELDS = ['Format', 'Title', 'System', 'Region', 'Version'];
+    var visibleHeaderKeys = p.showAllHeader
+      ? headerKeys
+      : headerKeys.filter(function (k) { return KEY_FIELDS.indexOf(k) >= 0; }).slice(0, 5);
+
+    if (!p.romName) {
+      return e('div', { style: { paddingBottom: 12 } },
+        e('div', {
+          style: {
+            padding: '16px 12px',
+            textAlign: 'center',
+            fontSize: 12,
+            color: 'var(--kt-input-placeholder-fg)',
+            lineHeight: 1.6
+          }
+        },
+          e('div', { style: { marginBottom: 8, opacity: 0.7 } },
+            K.ui.icon('folder', { size: 32 })),
+          'No ROM loaded.',
+          e('br'),
+          'Use File > Load ROM.'
+        )
+      );
+    }
+
+    return e('div', { style: { paddingBottom: 16 } },
+
+      // ROM info
+      e(TreeSection, {
+        title: 'ROM',
+        expanded: p.expanded.rom,
+        onToggle: function () { toggleExpanded('rom'); }
+      },
+        e(InfoRow, { label: 'Name', value: p.romName }),
+        e(InfoRow, { label: 'System', value: p.romSystem }),
+        e(InfoRow, { label: 'Size', value: formatBytes(p.romSize) }),
+        e(InfoRow, { label: 'CRC32', value: p.crc32 || '...' }),
+        e(InfoRow, { label: 'SHA1', value: p.sha1 || '...' })
+      ),
+
+      // Header details
+      headerKeys.length > 0 ? e(TreeSection, {
+        title: 'Header Details',
+        expanded: p.expanded.header,
+        onToggle: function () { toggleExpanded('header'); }
+      },
+        visibleHeaderKeys.map(function (k) {
+          return e(InfoRow, { key: k, label: k, value: String(p.header[k]) });
+        }),
+        headerKeys.length > 5 ? e('div', {
+          onClick: toggleShowAllHeader,
+          style: {
+            padding: '4px 8px 4px 24px',
+            fontSize: 11,
+            color: '#3794ff',
+            cursor: 'pointer',
+            textDecoration: 'underline'
+          }
+        }, p.showAllHeader ? 'Show less' : 'Show all (' + headerKeys.length + ')') : null
+      ) : null,
+
+      // Sections
+      e(TreeSection, {
+        title: 'Sections',
+        expanded: p.expanded.sections,
+        onToggle: function () { toggleExpanded('sections'); }
+      },
+        p.sections.length === 0
+          ? e('div', {
+              style: {
+                padding: '4px 8px 4px 24px', fontSize: 11,
+                color: 'var(--kt-input-placeholder-fg)', opacity: 0.7
+              }
+            }, 'No sections detected.')
+          : p.sections.map(function (sec) {
+              var range = '0x' + sec.start.toString(16).toUpperCase() +
+                (sec.end !== null ? ' - 0x' + sec.end.toString(16).toUpperCase() : '+');
+              return e(TreeLeaf, {
+                key: sec.id,
+                label: sec.label,
+                meta: range,
+                icon: 'file',
+                selected: p.selectedNode === sec.id,
+                tooltip: 'Double-click to open Hex Editor at 0x' + sec.start.toString(16).toUpperCase(),
+                onClick: function () { selectNode(sec.id); },
+                onDoubleClick: function () { onOpenHexAt(sec.start); }
+              });
+            })
+      ),
+
+      // Tables
+      e(TreeSection, {
+        title: 'Tables',
+        expanded: p.expanded.tables,
+        onToggle: function () { toggleExpanded('tables'); }
+      },
+        e(TreeLeaf, {
+          label: p.tables.length === 0 ? 'Load or generate table' : p.tables.length + ' table(s)',
+          icon: 'file-code',
+          meta: p.tables.length === 0 ? 'Open Table' : '',
+          selected: p.selectedNode === 'tables-open',
+          tooltip: 'Open Table activity',
+          onClick: function () { selectNode('tables-open'); },
+          onDoubleClick: function () { onNavigateToActivity('table'); }
+        })
+      ),
+
+      // Groups
+      e(TreeSection, {
+        title: 'Groups',
+        expanded: p.expanded.groups,
+        onToggle: function () { toggleExpanded('groups'); }
+      },
+        p.groups.length === 0
+          ? e(TreeLeaf, {
+              label: 'No groups yet',
+              icon: 'folder',
+              meta: 'Create in Search Text',
+              selected: p.selectedNode === 'groups-empty',
+              tooltip: 'Open Search Text activity',
+              onClick: function () { selectNode('groups-empty'); },
+              onDoubleClick: function () { onNavigateToActivity('search'); }
+            })
+          : p.groups.map(function (g) {
+              return e(TreeLeaf, {
+                key: g.id,
+                label: g.name,
+                icon: 'folder',
+                meta: (g.textIds ? g.textIds.length + ' items' : ''),
+                selected: p.selectedNode === ('group:' + g.id),
+                onClick: function () { selectNode('group:' + g.id); },
+                onDoubleClick: function () {
+                  onNavigateToActivity('translation');
+                }
+              });
+            })
+      ),
+
+      // Project files
+      e(TreeSection, {
+        title: 'Project Files',
+        expanded: p.expanded.projectFiles,
+        onToggle: function () { toggleExpanded('projectFiles'); }
+      },
+        e(TreeLeaf, {
+          label: 'project.ketor',
+          icon: 'file',
+          meta: 'Not saved',
+          selected: p.selectedNode === 'project-file',
+          onClick: function () { selectNode('project-file'); }
+        })
+      ),
+
+      // Recent files
+      p.recent.length > 0 ? e(TreeSection, {
+        title: 'Recent',
+        expanded: p.expanded.recent,
+        onToggle: function () { toggleExpanded('recent'); },
+        actions: e('button', {
+          type: 'button',
+          onClick: function (ev) { ev.stopPropagation(); clearRecent(); },
+          title: 'Clear recent',
+          style: {
+            background: 'transparent', border: 'none',
+            color: 'var(--kt-sidebar-fg)', cursor: 'pointer',
+            opacity: 0.6, fontSize: 11, padding: '0 4px'
+          }
+        }, 'clear')
+      },
+        p.recent.slice(0, 8).map(function (r, idx) {
+          var meta = formatBytes(r.size);
+          return e(TreeLeaf, {
+            key: 'recent-' + idx,
+            label: r.name,
+            icon: 'file',
+            meta: meta,
+            selected: p.selectedNode === ('recent:' + idx),
+            tooltip: r.system + ' | ' + (r.hash || ''),
+            onClick: function () { selectNode('recent:' + idx); }
+          });
+        })
+      ) : null
+    );
+  }
+
+  // Initialize recent from sessionStorage
+  _set({ recent: loadRecent() });
+
+  // Expose
+  K.project = {
+    getState: getState,
+    subscribe: subscribe,
+    useProject: useProject,
+    setRomFromLoad: setRomFromLoad,
+    toggleShowAllHeader: toggleShowAllHeader,
+    toggleExpanded: toggleExpanded,
+    selectNode: selectNode,
+    clearRecent: clearRecent,
+    reset: reset,
+    formatBytes: formatBytes
+  };
+
+  // Register sidebar provider
+  K.ui.registerSidebarProvider('project', ProjectSidebar);
+
+})(window);
