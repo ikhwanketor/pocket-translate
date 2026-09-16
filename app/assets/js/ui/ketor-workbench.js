@@ -493,7 +493,7 @@
     }, [tasks]);
 
     var showBackdrop = isCompact && state.sidebarVisible;
-    var compactHeaderTitle = (ACTIVITY_META[state.activeActivity] || {}).title || 'Ketor';
+    var compactHeaderTitle = 'Ketor';
 
     return e('div', {
       className: rootClasses.join(' '),
