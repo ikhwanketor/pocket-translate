@@ -11,7 +11,7 @@
      - assets/ (game data, Unity/Unreal files)
      - META-INF/ (signature)
    - Text locations:
-     - UI strings: res/values/strings.xml + res/values-*/strings.xml
+     - UI strings: res/values/strings.xml + res/values-* /strings.xml
        (after apktool decode; compiled into resources.arsc)
      - Hardcoded strings: classes.dex (need JADX to read)
      - Unity IL2CPP: assets/bin/Data/Managed/Metadata/global-metadata.dat
@@ -27,7 +27,7 @@
      - AssetStudio / UABE (Unity asset extraction)
    - Workflow:
      1. apktool d game.apk -o output/
-     2. Edit res/values/strings.xml + res/values-*/strings.xml
+     2. Edit res/values/strings.xml + res/values-* /strings.xml
      3. Edit global-metadata.dat (if Unity IL2CPP)
      4. apktool b output/ -o game_mod.apk
      5. uber-apk-signer -a game_mod.apk
