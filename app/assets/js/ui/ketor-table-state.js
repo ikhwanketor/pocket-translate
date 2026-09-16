@@ -6,9 +6,17 @@
    Persists search history + active table to sessionStorage.
    ============================================================ */
 
+/* ============================================================
+   Ketor - Table Activity State (v3)
+   ------------------------------------------------------------
+   Monkey-Moore settings in sidebar, results in left panel top
+   (3 columns: Offset / Values / Preview-in-game), preview .tbl
+   (hex=char) + compare in left panel bottom, edit table in
+   right panel.
+   ============================================================ */
+
 (function (global) {
   'use strict';
-
   var K = global.Ketor = global.Ketor || {};
   var R = global.React;
   if (!R) return;
@@ -16,40 +24,35 @@
 
   var HISTORY_KEY = 'ketor.table.history';
   var HISTORY_LIMIT = 20;
-  var WORKER_KEY = 'ketor.table.worker';
 
   var _state = {
-    romBytes: null,
-    romName: '',
-    romSystem: '',
-    romSize: 0,
+    romBytes: null, romName: '', romSystem: '', romSize: 0,
 
-    // Search input
-    searchText: '',
-    searchHistory: [],
-    method: 'relative', // 'relative' | 'value-scan' | 'normal'
-    charset: 'ASCII',
+    // Sidebar search params (Monkey-Moore style)
+    searchMode: 'relative', // 'relative' | 'value-scan'
+    keyword: '',
+    wildcardEnabled: false,
+    wildcardChar: '*',
     byteWidth: 8,
     endianness: 'little',
-    matchCase: false,
-    wildcard: false,
+    charset: 'ASCII',
+    advancedOpen: false,
+    searchHistory: [],
 
     // Results
-    candidates: [],
-    selectedCandidateId: null,
-    compareIds: [],
-    previewFilter: '',
+    results: [],
+    selectedResultIdx: -1,
+    previewTbl: '',          // hex=char preview of selected result
+    compareFileName: '',
+    compareTbl: '',          // raw content of loaded .tbl for compare
 
     // Edit table
-    tableContent: '',
-    tableEntries: [],
-    tableSource: '',
+    editEntries: [],
+    editSource: '',
     isApplied: false,
 
-    // UI
     isSearching: false,
-    status: '',
-    progress: 0
+    status: ''
   };
 
   var _listeners = new Set();
@@ -69,7 +72,6 @@
   function _notify() {
     _listeners.forEach(function (fn) { try { fn(); } catch (_) { } });
   }
-
   function getState() { return _state; }
   function subscribe(fn) {
     if (typeof fn !== 'function') return function () { };
@@ -80,37 +82,35 @@
     return R.useSyncExternalStore(subscribe, getState, getState);
   }
 
-  // ---- Session persistence ----
+  // History
   function loadHistory() {
     try {
       var raw = global.sessionStorage.getItem(HISTORY_KEY);
       if (!raw) return [];
-      var arr = JSON.parse(raw);
-      return Array.isArray(arr) ? arr.slice(0, HISTORY_LIMIT) : [];
+      var a = JSON.parse(raw);
+      return Array.isArray(a) ? a.slice(0, HISTORY_LIMIT) : [];
     } catch (_) { return []; }
   }
-
   function saveHistory(list) {
     try {
       global.sessionStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, HISTORY_LIMIT)));
     } catch (_) { }
   }
-
-  function pushHistory(text) {
-    var v = String(text || '').trim();
-    if (!v) return;
-    var list = loadHistory().filter(function (x) { return x !== v; });
-    list.unshift(v);
+  function pushHistory(v) {
+    var s = String(v || '').trim();
+    if (!s) return;
+    var list = loadHistory().filter(function (x) { return x !== s; });
+    list.unshift(s);
     if (list.length > HISTORY_LIMIT) list = list.slice(0, HISTORY_LIMIT);
     saveHistory(list);
     _set({ searchHistory: list });
   }
 
-  // ---- TBL parsing ----
-  function parseTblToEntries(content) {
+  // TBL parse/generate
+  function parseTbl(content) {
     var lines = String(content || '').replace(/\r/g, '').split('\n');
-    var entries = [];
-    var idc = 0;
+    var out = [];
+    var idx = 0;
     lines.forEach(function (line) {
       if (!line) return;
       var raw = line.trim();
@@ -133,104 +133,56 @@
       if (isLine) ch = '[LINE]';
       if (isEnd && (!ch || ch.trim() === '')) ch = '[END]';
       if (ch.toUpperCase() === '[SPACE]') ch = ' ';
-      idc++;
-      entries.push({
-        id: 'e' + idc,
-        hex: hex,
-        char: ch,
+      idx++;
+      out.push({
+        id: 'e' + idx, hex: hex, char: ch,
         bytes: (hex.match(/.{1,2}/g) || []).join(' '),
-        comment: '',
-        isLine: isLine,
-        isEnd: isEnd
+        comment: ''
       });
     });
-    return entries;
+    return out;
   }
 
   function entriesToTbl(entries) {
-    var lines = [];
-    (entries || []).forEach(function (en) {
+    return (entries || []).map(function (en) {
       var prefix = '';
       if (en.isLine) prefix = '*';
       if (en.isEnd) prefix = '\\';
       var ch = en.char || '';
       if (ch === ' ') ch = '[SPACE]';
-      lines.push(prefix + en.hex + '=' + ch);
+      return prefix + en.hex + '=' + ch;
+    }).join('\n');
+  }
+
+  // Convert a Monkey-Moore result into a .tbl preview (hex=char)
+  // Anchor: the first value in values map. Generate A-Z / a-z if
+  // anchor is 'A' or 'a'. Otherwise just the anchor char.
+  function resultToTblPreview(result) {
+    if (!result || !result.values) return '';
+    var keys = Object.keys(result.values);
+    if (keys.length === 0) return '';
+    var lines = [];
+    var handled = {};
+    keys.forEach(function (key) {
+      var cp = key.charCodeAt(0);
+      var val = result.values[key] & 0xFF;
+      if (cp === 65 || cp === 97) {
+        for (var lo = 0; lo < 26; lo++) {
+          var b = (val + lo) & 0xFF;
+          var hex = b.toString(16).toUpperCase().padStart(2, '0');
+          if (handled[hex]) continue;
+          handled[hex] = true;
+          lines.push(hex + '=' + String.fromCharCode(cp + lo));
+        }
+      } else {
+        var h2 = val.toString(16).toUpperCase().padStart(2, '0');
+        if (!handled[h2]) {
+          handled[h2] = true;
+          lines.push(h2 + '=' + key);
+        }
+      }
     });
     return lines.join('\n');
-  }
-
-  // ---- Worker for relative search ----
-  var _worker = null;
-  function _ensureWorker() {
-    if (_worker) return;
-    var lg = K.legacy || {};
-    if (typeof lg.createRelativeSearchWorker !== 'function') return;
-    try {
-      _worker = lg.createRelativeSearchWorker();
-      _worker.onmessage = _onWorkerMessage;
-      _worker.onerror = function () {
-        _set({ isSearching: false, status: 'Search worker error.' });
-      };
-    } catch (_) { _worker = null; }
-  }
-
-  function _onWorkerMessage(ev) {
-    var d = ev.data || {};
-    if (d.type !== 'relativeSearchResult') {
-      if (d.type === 'error') {
-        _set({ isSearching: false, status: 'Search failed: ' + (d.message || '') });
-      }
-      return;
-    }
-    var results = Array.isArray(d.results) ? d.results : [];
-    var text = _state.searchText || '';
-    var firstChar = text.charAt(0) || '?';
-    var charsetFull = (K.core && K.core.DEFAULT_CHARSET_FULL) ||
-      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-
-    var candidates = results.map(function (r, idx) {
-      var og = Number(r.offsetGuess) || 0;
-      var ogByte = og & 0xFF;
-      var ogHex = ogByte.toString(16).toUpperCase().padStart(2, '0');
-      var valuesLabel = firstChar + '=' + ogHex;
-      var paddingMode = r.mode || 'none';
-      var previewFull = '';
-      try {
-        if (K.core && typeof K.core.generateTableContent === 'function') {
-          previewFull = K.core.generateTableContent({
-            offsetGuess: ogByte,
-            charset: charsetFull,
-            paddingMode: paddingMode,
-            lineByte: null,
-            endByte: null
-          });
-        }
-      } catch (_) { previewFull = ''; }
-      var previewShort = previewFull.replace(/\s+/g, ' ').substring(0, 48);
-      if (previewFull.length > 48) previewShort += '...';
-      return {
-        id: 'c' + (idx + 1),
-        offset: Number(r.offset) || 0,
-        offsetGuess: ogByte,
-        method: paddingMode === 'le' ? 'Relative LE'
-          : paddingMode === 'be' ? 'Relative BE'
-          : 'Relative',
-        paddingMode: paddingMode,
-        valuesLabel: valuesLabel,
-        previewShort: previewShort,
-        previewFull: previewFull,
-        source: r.source || 'search'
-      };
-    });
-
-    _set({
-      candidates: candidates,
-      selectedCandidateId: candidates[0] ? candidates[0].id : null,
-      compareIds: [],
-      isSearching: false,
-      status: 'Found ' + candidates.length + ' candidate(s).'
-    });
   }
 
   // ---- Actions ----
@@ -240,190 +192,139 @@
       romName: result.name || '',
       romSystem: systemName || 'Unknown',
       romSize: result.size || 0,
-      candidates: [],
-      selectedCandidateId: null,
-      compareIds: [],
-      tableContent: '',
-      tableEntries: [],
-      tableSource: '',
+      results: [],
+      selectedResultIdx: -1,
+      previewTbl: '',
+      compareFileName: '',
+      compareTbl: '',
+      editEntries: [],
+      editSource: '',
       isApplied: false,
-      status: 'ROM ready. Search text or load a .tbl.'
+      status: 'ROM ready.'
     });
   }
 
-  function setSearchText(v) {
-    _set({ searchText: String(v || '') });
-  }
-  function setMethod(v) { _set({ method: String(v || 'relative') }); }
-  function setCharset(v) { _set({ charset: String(v || 'ASCII') }); }
+  function setSearchMode(v) { _set({ searchMode: v === 'value-scan' ? 'value-scan' : 'relative' }); }
+  function setKeyword(v) { _set({ keyword: String(v || '') }); }
+  function setWildcardEnabled(v) { _set({ wildcardEnabled: v === true }); }
+  function setWildcardChar(v) { _set({ wildcardChar: String(v || '*').charAt(0) || '*' }); }
   function setByteWidth(v) { _set({ byteWidth: Number(v) === 16 ? 16 : 8 }); }
   function setEndianness(v) { _set({ endianness: v === 'big' ? 'big' : 'little' }); }
-  function setMatchCase(v) { _set({ matchCase: v === true }); }
-  function setWildcard(v) { _set({ wildcard: v === true }); }
-  function setPreviewFilter(v) { _set({ previewFilter: String(v || '') }); }
-
-  function selectCandidate(id) {
-    _set({ selectedCandidateId: id || null });
-  }
-
-  function toggleCompare(id) {
-    var list = (_state.compareIds || []).slice();
-    var i = list.indexOf(id);
-    if (i >= 0) {
-      list.splice(i, 1);
-    } else {
-      if (list.length >= 2) list.shift();
-      list.push(id);
-    }
-    _set({ compareIds: list });
-  }
-
-  function clearCompare() { _set({ compareIds: [] }); }
+  function setCharset(v) { _set({ charset: String(v || 'ASCII') }); }
+  function toggleAdvanced() { _set({ advancedOpen: !_state.advancedOpen }); }
 
   function runSearch() {
     if (!_state.romBytes) { _set({ status: 'Load ROM first.' }); return; }
-    var text = String(_state.searchText || '').trim();
-    if (!text) { _set({ status: 'Enter text in-game.' }); return; }
-    _ensureWorker();
-    if (!_worker) { _set({ status: 'Search worker unavailable.' }); return; }
-    pushHistory(text);
-    _set({
-      isSearching: true,
-      progress: 0,
-      status: 'Searching...',
-      candidates: [],
-      selectedCandidateId: null,
-      compareIds: []
-    });
-    var rb = _state.romBytes;
-    var romBuffer = rb.buffer.slice(rb.byteOffset, rb.byteOffset + rb.byteLength);
-    try {
-      _worker.postMessage({
-        type: 'relativeSearch',
-        payload: {
-          romBuffer: romBuffer,
-          query: text,
-          hexQuery: '',
-          mode: 'text',
-          paddingMode: 'auto',
-          queryBytes: null,
-          queryCandidates: [],
-          systemName: _state.romSystem || '',
-          maxResults: 200
-        }
-      }, [romBuffer]);
-    } catch (e) {
-      _set({ isSearching: false, status: 'Search dispatch failed: ' + (e.message || '') });
-    }
+    var kw = String(_state.keyword || '').trim();
+    if (!kw) { _set({ status: 'Enter text in-game.' }); return; }
+    _set({ isSearching: true, status: 'Searching...', results: [], selectedResultIdx: -1, previewTbl: '' });
+    pushHistory(kw);
+    // Defer to next tick so spinner shows
+    setTimeout(function () {
+      try {
+        var res = K.core.runMonkeyMoore(_state.romBytes, {
+          mode: _state.searchMode,
+          keyword: kw,
+          wildcardEnabled: _state.wildcardEnabled,
+          wildcardChar: _state.wildcardChar,
+          byteWidth: _state.byteWidth,
+          endianness: _state.endianness,
+          maxResults: 500
+        });
+        _set({
+          results: res.results,
+          selectedResultIdx: res.results.length > 0 ? 0 : -1,
+          previewTbl: res.results.length > 0 ? resultToTblPreview(res.results[0]) : '',
+          isSearching: false,
+          status: 'Found ' + res.results.length + ' result(s).'
+        });
+      } catch (err) {
+        _set({ isSearching: false, status: 'Search failed: ' + (err.message || '') });
+      }
+    }, 10);
   }
 
   function clearResults() {
-    _set({
-      candidates: [],
-      selectedCandidateId: null,
-      compareIds: [],
-      previewFilter: '',
-      status: 'Results cleared.'
-    });
+    _set({ results: [], selectedResultIdx: -1, previewTbl: '', status: 'Results cleared.' });
   }
 
-  function loadTableFromFile(content, fileName) {
-    var entries = parseTblToEntries(content);
-    if (!entries.length) {
-      _set({ status: 'File has no valid entries.' });
-      return;
-    }
+  function selectResult(idx) {
+    var i = Number(idx);
+    if (!Number.isFinite(i) || i < 0 || i >= _state.results.length) return;
+    var r = _state.results[i];
+    _set({ selectedResultIdx: i, previewTbl: resultToTblPreview(r) });
+  }
+
+  function loadTableFile(content, fileName) {
+    var entries = parseTbl(content);
+    if (!entries.length) { _set({ status: 'File has no valid entries.' }); return; }
     _set({
-      tableContent: entriesToTbl(entries),
-      tableEntries: entries,
-      tableSource: 'file:' + (fileName || 'unknown.tbl'),
+      editEntries: entries,
+      editSource: 'file:' + (fileName || 'unknown.tbl'),
       isApplied: false,
       status: 'Loaded ' + entries.length + ' entries from ' + (fileName || 'file') + '.'
     });
   }
 
-  function applySelectedToEditTable() {
-    var sel = _state.selectedCandidateId;
-    if (!sel) { _set({ status: 'Select a candidate first.' }); return; }
-    var cand = null;
-    for (var i = 0; i < _state.candidates.length; i++) {
-      if (_state.candidates[i].id === sel) { cand = _state.candidates[i]; break; }
-    }
-    if (!cand) { _set({ status: 'Candidate not found.' }); return; }
-    var entries = parseTblToEntries(cand.previewFull);
+  function loadCompareFile(content, fileName) {
     _set({
-      tableContent: entriesToTbl(entries),
-      tableEntries: entries,
-      tableSource: 'generated:' + cand.id,
+      compareFileName: fileName || '',
+      compareTbl: String(content || ''),
+      status: 'Loaded compare file: ' + (fileName || '') + '.'
+    });
+  }
+
+  function clearCompare() {
+    _set({ compareFileName: '', compareTbl: '', status: 'Compare cleared.' });
+  }
+
+  function applyPreviewToEditTable() {
+    if (!_state.previewTbl) { _set({ status: 'No preview to apply.' }); return; }
+    var entries = parseTbl(_state.previewTbl);
+    if (!entries.length) { _set({ status: 'Preview has no valid entries.' }); return; }
+    _set({
+      editEntries: entries,
+      editSource: 'generated',
       isApplied: false,
-      status: 'Applied candidate ' + cand.offset.toString(16).toUpperCase() +
-        ' to Edit Table (' + entries.length + ' entries).'
+      status: 'Applied preview (' + entries.length + ' entries) to Edit Table.'
     });
   }
 
-  function updateTableEntry(id, patch) {
-    var next = _state.tableEntries.map(function (en) {
+  function updateEditEntry(id, patch) {
+    var next = _state.editEntries.map(function (en) {
       if (en.id !== id) return en;
-      return Object.assign({}, en, patch || {});
+      var merged = Object.assign({}, en, patch || {});
+      if (typeof merged.hex === 'string') {
+        merged.bytes = (merged.hex.match(/.{1,2}/g) || []).join(' ');
+      }
+      return merged;
     });
-    _set({
-      tableEntries: next,
-      tableContent: entriesToTbl(next)
-    });
+    _set({ editEntries: next });
   }
-
-  function addTableEntry() {
-    var idc = _state.tableEntries.length + 1;
-    var newEntry = {
-      id: 'e_new_' + Date.now(),
-      hex: '00',
-      char: '',
-      bytes: '00',
-      comment: '',
-      isLine: false,
-      isEnd: false
-    };
-    var next = _state.tableEntries.concat([newEntry]);
-    _set({
-      tableEntries: next,
-      tableContent: entriesToTbl(next)
-    });
+  function addEditEntry() {
+    var next = _state.editEntries.concat([{
+      id: 'e_new_' + Date.now(), hex: '00', char: '',
+      bytes: '00', comment: '', isLine: false, isEnd: false
+    }]);
+    _set({ editEntries: next });
   }
-
-  function removeTableEntry(id) {
-    var next = _state.tableEntries.filter(function (en) { return en.id !== id; });
-    _set({
-      tableEntries: next,
-      tableContent: entriesToTbl(next)
-    });
+  function removeEditEntry(id) {
+    _set({ editEntries: _state.editEntries.filter(function (en) { return en.id !== id; }) });
   }
-
-  function sortTable() {
-    var next = _state.tableEntries.slice().sort(function (a, b) {
-      var ah = parseInt(a.hex, 16);
-      var bh = parseInt(b.hex, 16);
+  function sortEditTable() {
+    var next = _state.editEntries.slice().sort(function (a, b) {
+      var ah = parseInt(a.hex, 16), bh = parseInt(b.hex, 16);
       if (isNaN(ah) || isNaN(bh)) return 0;
       return ah - bh;
     });
-    _set({
-      tableEntries: next,
-      tableContent: entriesToTbl(next)
-    });
+    _set({ editEntries: next });
   }
-
-  function clearTable() {
-    _set({
-      tableContent: '',
-      tableEntries: [],
-      tableSource: '',
-      isApplied: false,
-      status: 'Table cleared.'
-    });
+  function clearEditTable() {
+    _set({ editEntries: [], editSource: '', isApplied: false, status: 'Edit Table cleared.' });
   }
-
-  function downloadTable() {
-    var content = entriesToTbl(_state.tableEntries);
-    if (!content) { _set({ status: 'Nothing to download.' }); return; }
+  function downloadEditTable() {
+    if (!_state.editEntries.length) { _set({ status: 'Nothing to download.' }); return; }
+    var content = entriesToTbl(_state.editEntries);
     var base = (_state.romName || 'ketor').replace(/\.[^.]+$/, '');
     var name = base + '.tbl';
     var blob = new Blob([content], { type: 'text/plain' });
@@ -437,15 +338,8 @@
   }
 
   function applyForRom() {
-    if (!_state.tableEntries.length) {
-      _set({ status: 'Edit table is empty.' });
-      return;
-    }
-    _set({
-      isApplied: true,
-      status: 'Table applied for ROM. Proceeding to Search Text...'
-    });
-    // Notify workbench to switch activity
+    if (!_state.editEntries.length) { _set({ status: 'Edit Table is empty.' }); return; }
+    _set({ isApplied: true, status: 'Table applied for ROM. Proceeding to Search Text...' });
     try {
       global.dispatchEvent(new CustomEvent('ketor:navigate-activity', {
         detail: { activity: 'search', source: 'table-apply' }
@@ -456,10 +350,10 @@
   function reset() {
     _set({
       romBytes: null, romName: '', romSystem: '', romSize: 0,
-      searchText: '', candidates: [], selectedCandidateId: null,
-      compareIds: [], previewFilter: '',
-      tableContent: '', tableEntries: [], tableSource: '', isApplied: false,
-      isSearching: false, status: '', progress: 0
+      keyword: '', results: [], selectedResultIdx: -1, previewTbl: '',
+      compareFileName: '', compareTbl: '',
+      editEntries: [], editSource: '', isApplied: false,
+      isSearching: false, status: ''
     });
   }
 
@@ -469,27 +363,27 @@
   K.table.subscribe = subscribe;
   K.table.useTable = useTable;
   K.table.setRomFromLoad = setRomFromLoad;
-  K.table.setSearchText = setSearchText;
-  K.table.setMethod = setMethod;
-  K.table.setCharset = setCharset;
+  K.table.setSearchMode = setSearchMode;
+  K.table.setKeyword = setKeyword;
+  K.table.setWildcardEnabled = setWildcardEnabled;
+  K.table.setWildcardChar = setWildcardChar;
   K.table.setByteWidth = setByteWidth;
   K.table.setEndianness = setEndianness;
-  K.table.setMatchCase = setMatchCase;
-  K.table.setWildcard = setWildcard;
-  K.table.setPreviewFilter = setPreviewFilter;
-  K.table.selectCandidate = selectCandidate;
-  K.table.toggleCompare = toggleCompare;
-  K.table.clearCompare = clearCompare;
+  K.table.setCharset = setCharset;
+  K.table.toggleAdvanced = toggleAdvanced;
   K.table.runSearch = runSearch;
   K.table.clearResults = clearResults;
-  K.table.loadTableFromFile = loadTableFromFile;
-  K.table.applySelectedToEditTable = applySelectedToEditTable;
-  K.table.updateTableEntry = updateTableEntry;
-  K.table.addTableEntry = addTableEntry;
-  K.table.removeTableEntry = removeTableEntry;
-  K.table.sortTable = sortTable;
-  K.table.clearTable = clearTable;
-  K.table.downloadTable = downloadTable;
+  K.table.selectResult = selectResult;
+  K.table.loadTableFile = loadTableFile;
+  K.table.loadCompareFile = loadCompareFile;
+  K.table.clearCompare = clearCompare;
+  K.table.applyPreviewToEditTable = applyPreviewToEditTable;
+  K.table.updateEditEntry = updateEditEntry;
+  K.table.addEditEntry = addEditEntry;
+  K.table.removeEditEntry = removeEditEntry;
+  K.table.sortEditTable = sortEditTable;
+  K.table.clearEditTable = clearEditTable;
+  K.table.downloadEditTable = downloadEditTable;
   K.table.applyForRom = applyForRom;
   K.table.reset = reset;
 

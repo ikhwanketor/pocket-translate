@@ -118,6 +118,15 @@
    - Welcome screen, tab behavior, all previous fixes kept.
    ============================================================ */
 
+/* ============================================================
+   Ketor - Workbench (v12)
+   ------------------------------------------------------------
+   Batch 14c additions:
+   - ROM load handler calls Ketor.table.setRomFromLoad
+   - Table input handler calls Ketor.table.loadTableFile
+   - New compare file input handler (kt-input-table-compare)
+   ============================================================ */
+
 (function (global) {
   'use strict';
 
@@ -137,7 +146,7 @@
     table: {
       icon: 'file-code', title: 'Table',
       placeholderTitle: 'Table Workspace',
-      placeholderHint: 'Generate, load, and edit .tbl character tables. Coming in the next batch.'
+      placeholderHint: 'Generate, load, and edit .tbl character tables.'
     },
     search: {
       icon: 'search', title: 'Search Text',
@@ -482,14 +491,11 @@
       return function () { Ketor.ui.setActiveActivityExternal = null; };
     }, []);
 
-    // Navigation event handlers (double-click from project tree)
     useEffect(function () {
       function findTabLocation(groups, tabId) {
         for (var i = 0; i < groups.length; i++) {
           for (var j = 0; j < groups[i].tabs.length; j++) {
-            if (groups[i].tabs[j].id === tabId) {
-              return groups[i].id;
-            }
+            if (groups[i].tabs[j].id === tabId) return groups[i].id;
           }
         }
         return null;
@@ -553,6 +559,7 @@
       };
     }, []);
 
+    // ---- ROM input handler ----
     useEffect(function () {
       var input = document.getElementById('kt-input-rom');
       if (!input) return;
@@ -607,6 +614,7 @@
       return function () { input.removeEventListener('change', onChange); };
     }, []);
 
+    // ---- Table input handler ----
     useEffect(function () {
       var input = document.getElementById('kt-input-table');
       if (!input) return;
@@ -618,6 +626,9 @@
           if (Ketor.translate && Ketor.translate.loadTableContent) {
             Ketor.translate.loadTableContent(content, f.name);
           }
+          if (Ketor.table && Ketor.table.loadTableFile) {
+            Ketor.table.loadTableFile(content, f.name);
+          }
           actionsRef.current.appendLog('success', 'Table: ' + f.name, 'table');
         }).catch(function (err) {
           actionsRef.current.appendLog('error', 'Table failed: ' + (err.message || ''), 'table');
@@ -627,6 +638,28 @@
       return function () { input.removeEventListener('change', onChange); };
     }, []);
 
+    // ---- Table compare input handler ----
+    useEffect(function () {
+      var input = document.getElementById('kt-input-table-compare');
+      if (!input) return;
+      function onChange(ev) {
+        var f = ev.target.files && ev.target.files[0];
+        ev.target.value = '';
+        if (!f) return;
+        f.text().then(function (content) {
+          if (Ketor.table && Ketor.table.loadCompareFile) {
+            Ketor.table.loadCompareFile(content, f.name);
+          }
+          actionsRef.current.appendLog('success', 'Compare file: ' + f.name, 'table');
+        }).catch(function (err) {
+          actionsRef.current.appendLog('error', 'Compare load failed: ' + (err.message || ''), 'table');
+        });
+      }
+      input.addEventListener('change', onChange);
+      return function () { input.removeEventListener('change', onChange); };
+    }, []);
+
+    // ---- CSV input handler ----
     useEffect(function () {
       var input = document.getElementById('kt-input-csv');
       if (!input) return;

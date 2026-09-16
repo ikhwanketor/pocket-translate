@@ -7,34 +7,53 @@
                 large Apply for ROM button
    ============================================================ */
 
+/* ============================================================
+   Ketor - Table Activity Tab (v3)
+   ------------------------------------------------------------
+   Left top:  Results (Offset | Values | Preview-in-game)
+   Left bot:  Preview .tbl (hex=char) + Compare (loaded .tbl)
+   Right:     Edit Table + Apply for ROM
+   ============================================================ */
+
 (function (global) {
   'use strict';
-
   var K = global.Ketor = global.Ketor || {};
   K.ui = K.ui || {};
   var R = global.React;
   if (!R) return;
   var e = R.createElement;
-  var uS = R.useState;
   var uC = R.useCallback;
   var uM = R.useMemo;
 
-  // ---- Candidate List (Monkey-Moore layout) ----
-  function CandidateList(props) {
-    var candidates = props.candidates;
-    var selectedId = props.selectedId;
-    var compareIds = props.compareIds;
+  function thStyle(w, align) {
+    return {
+      padding: '4px 6px', width: w, textAlign: align || 'center',
+      borderBottom: '1px solid var(--kt-widget-border-default)',
+      fontWeight: 600, fontSize: 10, textTransform: 'uppercase',
+      color: 'var(--kt-sidebar-title-fg)'
+    };
+  }
+  function tdStyle(align) {
+    return {
+      padding: '3px 6px', textAlign: align || 'center',
+      borderBottom: '1px solid var(--kt-widget-border-default)',
+      overflow: 'hidden'
+    };
+  }
 
-    if (!candidates.length) {
+  // ---- Results table (3 columns) ----
+  function ResultsTable(props) {
+    var results = props.results;
+    var selectedIdx = props.selectedIdx;
+    if (!results.length) {
       return e('div', {
         style: {
-          padding: 20, textAlign: 'center', color: 'var(--kt-input-placeholder-fg)',
-          fontSize: 12, fontStyle: 'italic'
+          padding: 20, textAlign: 'center', fontStyle: 'italic',
+          fontSize: 12, color: 'var(--kt-input-placeholder-fg)'
         }
-      }, 'No candidates yet. Enter text in-game and click Search.');
+      }, 'No results yet. Enter text in-game and click Search.');
     }
-
-    return e('div', { style: { overflowX: 'auto', overflowY: 'auto', maxHeight: 280 } },
+    return e('div', { style: { overflowX: 'auto', overflowY: 'auto', maxHeight: 240 } },
       e('table', {
         style: {
           width: '100%', borderCollapse: 'collapse',
@@ -43,50 +62,30 @@
       },
         e('thead', null,
           e('tr', { style: { background: 'var(--kt-sidebar-bg)', position: 'sticky', top: 0, zIndex: 2 } },
-            e('th', { style: thStyle(28) }, 'Cmp'),
-            e('th', { style: thStyle(28) }, 'Sel'),
-            e('th', { style: thStyle(120), textAlign: 'left' }, 'Offset'),
-            e('th', { style: thStyle(80), textAlign: 'left' }, 'Values'),
-            e('th', { style: thStyle(200), textAlign: 'left' }, 'Preview')
+            e('th', { style: thStyle(90, 'left') }, 'Offset'),
+            e('th', { style: thStyle(110, 'left') }, 'Values'),
+            e('th', { style: thStyle(0, 'left') }, 'Preview')
           )
         ),
         e('tbody', null,
-          candidates.map(function (c, idx) {
-            var isSelected = c.id === selectedId;
-            var isCompare = compareIds.indexOf(c.id) >= 0;
+          results.map(function (r, idx) {
+            var isSel = idx === selectedIdx;
             return e('tr', {
-              key: c.id,
-              onClick: function () { K.table.selectCandidate(c.id); },
+              key: 'r' + idx,
+              onClick: function () { K.table.selectResult(idx); },
               style: {
-                background: isSelected ? 'var(--kt-list-active-selection-bg)' : (idx % 2 ? 'transparent' : 'rgba(255,255,255,0.02)'),
-                cursor: 'pointer'
+                cursor: 'pointer',
+                background: isSel ? 'var(--kt-list-active-selection-bg)' : (idx % 2 ? 'transparent' : 'rgba(255,255,255,0.02)')
               }
             },
-              e('td', { style: tdStyle() },
-                e('input', {
-                  type: 'checkbox',
-                  checked: isCompare,
-                  onClick: function (ev) { ev.stopPropagation(); },
-                  onChange: function () { K.table.toggleCompare(c.id); }
-                })
-              ),
-              e('td', { style: tdStyle() },
-                e('input', {
-                  type: 'radio',
-                  name: 'tbl-candidate-select',
-                  checked: isSelected,
-                  onClick: function (ev) { ev.stopPropagation(); },
-                  onChange: function () { K.table.selectCandidate(c.id); }
-                })
-              ),
-              e('td', { style: tdStyle('left') }, '0x' + c.offset.toString(16).toUpperCase()),
-              e('td', { style: tdStyle('left') }, c.valuesLabel),
+              e('td', { style: tdStyle('left') }, '0x' + r.offset.toString(16).toUpperCase()),
+              e('td', { style: tdStyle('left') }, r.valuesLabel || ''),
               e('td', {
                 style: Object.assign(tdStyle('left'), {
-                  maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap', opacity: 0.75
+                  maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap', opacity: 0.85
                 })
-              }, c.previewShort)
+              }, r.preview)
             );
           })
         )
@@ -94,150 +93,91 @@
     );
   }
 
-  function thStyle(w) {
-    return {
-      padding: '4px 6px', width: w, textAlign: 'center',
-      borderBottom: '1px solid var(--kt-widget-border-default)',
-      fontWeight: 600, fontSize: 10, textTransform: 'uppercase',
-      color: 'var(--kt-sidebar-title-fg)'
-    };
-  }
-  function tdStyle(align) {
-    return {
-      padding: '3px 6px',
-      textAlign: align || 'center',
-      borderBottom: '1px solid var(--kt-widget-border-default)',
-      overflow: 'hidden'
-    };
-  }
-
-  // ---- Full Preview panel ----
-  function FullPreview(props) {
-    var candidate = props.candidate;
-    var filter = props.filter;
-    if (!candidate) {
+  // ---- Preview .tbl (hex=char) ----
+  function PreviewTbl(props) {
+    var content = props.content;
+    if (!content) {
       return e('div', {
         style: {
-          padding: 12, fontSize: 11, fontStyle: 'italic',
+          padding: 12, fontStyle: 'italic', fontSize: 11,
           color: 'var(--kt-input-placeholder-fg)'
         }
-      }, 'Select a candidate to preview the generated .tbl.');
+      }, 'Select a result above to see its .tbl preview.');
     }
-    var lines = candidate.previewFull.split('\n');
-    var fLower = filter.trim().toLowerCase();
-    var filtered = fLower ? lines.filter(function (l) {
-      return l.toLowerCase().indexOf(fLower) >= 0;
-    }) : lines;
-
-    return e('div', { style: { display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 } },
-      e('div', { style: { padding: '6px 8px', fontSize: 10, color: 'var(--kt-sidebar-fg)', opacity: 0.7 } },
-        candidate.previewFull.length + ' chars, ' + lines.length + ' entries' +
-        (fLower ? ' -- filtered to ' + filtered.length : '')),
-
-      e('div', {
-        style: {
-          flex: 1, minHeight: 120, maxHeight: 220, overflow: 'auto',
-          background: 'var(--kt-editor-bg)', border: '1px solid var(--kt-widget-border-default)',
-          borderRadius: 2, padding: 6
-        }
-      },
-        e('pre', {
-          style: {
-            margin: 0, fontSize: 11, lineHeight: 1.4,
-            fontFamily: 'var(--kt-font-mono)', color: 'var(--kt-editor-fg)',
-            whiteSpace: 'pre-wrap', wordBreak: 'break-all'
-          }
-        }, filtered.join('\n') || '(no matching lines)')
-      )
-    );
+    return e('pre', {
+      style: {
+        margin: 0, padding: 8,
+        background: 'var(--kt-editor-bg)',
+        border: '1px solid var(--kt-widget-border-default)',
+        borderRadius: 2,
+        fontFamily: 'var(--kt-font-mono)', fontSize: 11,
+        lineHeight: 1.5, color: 'var(--kt-editor-fg)',
+        maxHeight: 180, overflow: 'auto',
+        whiteSpace: 'pre-wrap', wordBreak: 'break-all'
+      }
+    }, content);
   }
 
-  // ---- Compare panel ----
-  function ComparePanel(props) {
-    var ids = props.compareIds;
-    var candidates = props.candidates;
-    var list = ids.map(function (id) {
-      for (var i = 0; i < candidates.length; i++) {
-        if (candidates[i].id === id) return candidates[i];
-      }
-      return null;
-    }).filter(Boolean);
-
-    if (list.length < 2) return null;
-
+  // ---- Compare view ----
+  function CompareView(props) {
+    var fileContent = props.fileContent;
+    var previewContent = props.previewContent;
+    if (!fileContent) return null;
     return e('div', {
       style: {
-        padding: '6px 8px',
+        marginTop: 8, padding: 6,
         border: '1px solid var(--kt-focus-border)',
-        borderRadius: 3,
-        background: 'var(--kt-editor-bg)',
-        marginBottom: 8
+        borderRadius: 3, background: 'var(--kt-editor-bg)'
       }
     },
-      e('div', { style: { fontSize: 10, textTransform: 'uppercase', opacity: 0.7, marginBottom: 4 } }, 'Compare'),
+      e('div', { style: { fontSize: 10, textTransform: 'uppercase', opacity: 0.75, marginBottom: 4 } }, 'Compare'),
       e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
-        list.slice(0, 2).map(function (c) {
-          return e('div', { key: c.id, style: { minWidth: 0 } },
-            e('div', { style: { fontSize: 10, color: '#3794ff', marginBottom: 2 } },
-              '0x' + c.offset.toString(16).toUpperCase() + ' -- ' + c.valuesLabel),
-            e('div', {
-              style: {
-                maxHeight: 140, overflow: 'auto', background: 'var(--kt-sidebar-bg)',
-                border: '1px solid var(--kt-widget-border-default)', borderRadius: 2,
-                padding: 4, fontSize: 10
-              }
-            },
-              e('pre', {
-                style: {
-                  margin: 0, whiteSpace: 'pre-wrap',
-                  fontFamily: 'var(--kt-font-mono)',
-                  color: 'var(--kt-editor-fg)'
-                }
-              }, c.previewFull.substring(0, 800) + (c.previewFull.length > 800 ? '\n...' : ''))
-            ),
-            e('button', {
-              type: 'button',
-              className: 'kt-btn small',
-              style: { marginTop: 4, width: '100%' },
-              onClick: function () {
-                K.table.selectCandidate(c.id);
-                K.table.applySelectedToEditTable();
-              }
-            }, 'Choose this')
-          );
-        })
+        e('div', null,
+          e('div', { style: { fontSize: 10, color: '#3794ff', marginBottom: 2 } }, 'Generated'),
+          e('pre', {
+            style: {
+              margin: 0, padding: 4, background: 'var(--kt-sidebar-bg)',
+              border: '1px solid var(--kt-widget-border-default)', borderRadius: 2,
+              maxHeight: 140, overflow: 'auto', fontSize: 10,
+              fontFamily: 'var(--kt-font-mono)', whiteSpace: 'pre-wrap'
+            }
+          }, previewContent || '(empty)')
+        ),
+        e('div', null,
+          e('div', { style: { fontSize: 10, color: '#3794ff', marginBottom: 2 } }, 'Loaded'),
+          e('pre', {
+            style: {
+              margin: 0, padding: 4, background: 'var(--kt-sidebar-bg)',
+              border: '1px solid var(--kt-widget-border-default)', borderRadius: 2,
+              maxHeight: 140, overflow: 'auto', fontSize: 10,
+              fontFamily: 'var(--kt-font-mono)', whiteSpace: 'pre-wrap'
+            }
+          }, fileContent)
+        )
       )
     );
   }
 
-  // ---- Edit Table (right panel) ----
+  // ---- Edit Table ----
   function EditTable(props) {
     var entries = props.entries;
     var isApplied = props.isApplied;
 
+    function inputMini(w) {
+      return {
+        width: w, background: 'var(--kt-input-bg)', color: 'var(--kt-input-fg)',
+        border: '1px solid var(--kt-input-border)', borderRadius: 2,
+        padding: '2px 4px', fontFamily: 'var(--kt-font-mono)', fontSize: 11
+      };
+    }
+
     return e('div', { style: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 } },
       e('div', { style: { display: 'flex', gap: 4, marginBottom: 6, flexWrap: 'wrap' } },
-        e('button', {
-          type: 'button', className: 'kt-btn small',
-          onClick: function () { K.table.addTableEntry(); }
-        }, '+ Add'),
-        e('button', {
-          type: 'button', className: 'kt-btn small',
-          onClick: function () { K.table.sortTable(); },
-          disabled: entries.length < 2
-        }, 'Sort'),
-        e('button', {
-          type: 'button', className: 'kt-btn small',
-          onClick: function () { K.table.downloadTable(); },
-          disabled: entries.length === 0
-        }, 'Download .tbl'),
-        e('button', {
-          type: 'button', className: 'kt-btn small btn-danger',
-          onClick: function () { K.table.clearTable(); },
-          disabled: entries.length === 0
-        }, 'Clear')
+        e('button', { type: 'button', className: 'kt-btn small', onClick: function () { K.table.addEditEntry(); } }, '+ Add'),
+        e('button', { type: 'button', className: 'kt-btn small', onClick: function () { K.table.sortEditTable(); }, disabled: entries.length < 2 }, 'Sort'),
+        e('button', { type: 'button', className: 'kt-btn small', onClick: function () { K.table.downloadEditTable(); }, disabled: entries.length === 0 }, 'Download .tbl'),
+        e('button', { type: 'button', className: 'kt-btn small btn-danger', onClick: function () { K.table.clearEditTable(); }, disabled: entries.length === 0 }, 'Clear')
       ),
-
       e('div', {
         style: {
           flex: 1, minHeight: 0, overflow: 'auto',
@@ -246,26 +186,17 @@
         }
       },
         entries.length === 0
-          ? e('div', {
-              style: {
-                padding: 16, textAlign: 'center', fontStyle: 'italic',
-                fontSize: 11, color: 'var(--kt-input-placeholder-fg)'
-              }
-            }, 'Edit Table is empty. Generate or load a .tbl first.')
-          : e('table', {
-              style: {
-                width: '100%', borderCollapse: 'collapse',
-                fontFamily: 'var(--kt-font-mono)', fontSize: 11
-              }
-            },
+          ? e('div', { style: { padding: 16, textAlign: 'center', fontStyle: 'italic', fontSize: 11, color: 'var(--kt-input-placeholder-fg)' } },
+              'Edit Table is empty. Apply preview or load a .tbl.')
+          : e('table', { style: { width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--kt-font-mono)', fontSize: 11 } },
               e('thead', null,
                 e('tr', { style: { background: 'var(--kt-sidebar-bg)', position: 'sticky', top: 0, zIndex: 2 } },
                   e('th', { style: thStyle(28) }, '#'),
-                  e('th', { style: thStyle(70), textAlign: 'left' }, 'Hex'),
-                  e('th', { style: thStyle(80), textAlign: 'left' }, 'Char'),
-                  e('th', { style: thStyle(80), textAlign: 'left' }, 'Bytes'),
-                  e('th', { style: thStyle(140), textAlign: 'left' }, 'Comment'),
-                  e('th', { style: thStyle(50) }, '')
+                  e('th', { style: thStyle(70, 'left') }, 'Hex'),
+                  e('th', { style: thStyle(80, 'left') }, 'Char'),
+                  e('th', { style: thStyle(80, 'left') }, 'Bytes'),
+                  e('th', { style: thStyle(120, 'left') }, 'Comment'),
+                  e('th', { style: thStyle(40) }, '')
                 )
               ),
               e('tbody', null,
@@ -274,22 +205,19 @@
                     e('td', { style: tdStyle() }, idx + 1),
                     e('td', { style: tdStyle('left') },
                       e('input', {
-                        type: 'text',
-                        value: en.hex,
+                        type: 'text', value: en.hex,
                         onChange: function (ev) {
                           var v = ev.target.value.toUpperCase().replace(/[^0-9A-F]/g, '');
-                          var bytes = (v.match(/.{1,2}/g) || []).join(' ');
-                          K.table.updateTableEntry(en.id, { hex: v, bytes: bytes });
+                          K.table.updateEditEntry(en.id, { hex: v });
                         },
                         style: inputMini(70)
                       })
                     ),
                     e('td', { style: tdStyle('left') },
                       e('input', {
-                        type: 'text',
-                        value: en.char,
+                        type: 'text', value: en.char,
                         onChange: function (ev) {
-                          K.table.updateTableEntry(en.id, { char: ev.target.value });
+                          K.table.updateEditEntry(en.id, { char: ev.target.value });
                         },
                         style: inputMini(80)
                       })
@@ -297,21 +225,16 @@
                     e('td', { style: Object.assign(tdStyle('left'), { opacity: 0.6 }) }, en.bytes),
                     e('td', { style: tdStyle('left') },
                       e('input', {
-                        type: 'text',
-                        value: en.comment,
-                        placeholder: 'note',
-                        onChange: function (ev) {
-                          K.table.updateTableEntry(en.id, { comment: ev.target.value });
-                        },
-                        style: inputMini(140)
+                        type: 'text', value: en.comment || '', placeholder: 'note',
+                        onChange: function (ev) { K.table.updateEditEntry(en.id, { comment: ev.target.value }); },
+                        style: inputMini(120)
                       })
                     ),
                     e('td', { style: tdStyle() },
                       e('button', {
-                        type: 'button',
-                        className: 'icon-btn',
+                        type: 'button', className: 'icon-btn',
                         style: { width: 22, height: 22, padding: 0 },
-                        onClick: function () { K.table.removeTableEntry(en.id); },
+                        onClick: function () { K.table.removeEditEntry(en.id); },
                         title: 'Remove'
                       }, K.ui.icon('close', { size: 12 }))
                     )
@@ -320,17 +243,13 @@
               )
             )
       ),
-
       e('button', {
         type: 'button',
         onClick: function () { K.table.applyForRom(); },
         disabled: entries.length === 0,
         style: {
-          marginTop: 10,
-          padding: '12px 16px',
-          fontSize: 14,
-          fontWeight: 600,
-          width: '100%',
+          marginTop: 10, padding: '12px 16px',
+          fontSize: 14, fontWeight: 600, width: '100%',
           background: isApplied ? '#16825d' : 'var(--kt-button-bg)',
           color: '#fff',
           border: '1px solid ' + (isApplied ? '#16825d' : 'var(--kt-button-bg)'),
@@ -338,29 +257,20 @@
           cursor: entries.length === 0 ? 'not-allowed' : 'pointer',
           opacity: entries.length === 0 ? 0.5 : 1
         }
-      }, isApplied ? '✓ Applied for ROM -- Ready to Extract' : 'Apply for ROM')
+      }, isApplied ? '✓ Applied for ROM' : 'Apply for ROM')
     );
-  }
-
-  function inputMini(w) {
-    return {
-      width: w, background: 'var(--kt-input-bg)', color: 'var(--kt-input-fg)',
-      border: '1px solid var(--kt-input-border)', borderRadius: 2,
-      padding: '2px 4px', fontFamily: 'var(--kt-font-mono)', fontSize: 11
-    };
   }
 
   // ---- Main Tab ----
   function TableTab() {
     var t = K.table.useTable();
 
-    var selectedCandidate = uM(function () {
-      if (!t.selectedCandidateId) return null;
-      for (var i = 0; i < t.candidates.length; i++) {
-        if (t.candidates[i].id === t.selectedCandidateId) return t.candidates[i];
-      }
-      return null;
-    }, [t.candidates, t.selectedCandidateId]);
+    var onLoadCompare = uC(function () {
+      var inp = document.getElementById('kt-input-table-compare');
+      if (inp) inp.click();
+    }, []);
+
+    var onApplyPreview = uC(function () { K.table.applyPreviewToEditTable(); }, []);
 
     if (!t.romBytes) {
       return e('div', { className: 'kt-activity-placeholder' },
@@ -371,70 +281,68 @@
 
     return e('div', {
       style: {
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 12,
-        height: '100%',
-        minHeight: 0,
-        overflow: 'hidden',
-        padding: 12
+        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12,
+        height: '100%', minHeight: 0, overflow: 'hidden', padding: 12
       }
     },
-      // LEFT: candidate list + preview + apply
+      // LEFT column
       e('div', {
         style: {
-          display: 'flex', flexDirection: 'column', minHeight: 0,
-          border: '1px solid var(--kt-widget-border-default)',
-          borderRadius: 3, background: 'var(--kt-sidebar-bg)',
-          padding: 10, overflow: 'hidden'
+          display: 'flex', flexDirection: 'column', gap: 8,
+          minHeight: 0, overflow: 'hidden'
         }
       },
-        e('div', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.7, marginBottom: 6 } },
-          'Candidates (' + t.candidates.length + ')'),
-        e(CandidateList, {
-          candidates: t.candidates,
-          selectedId: t.selectedCandidateId,
-          compareIds: t.compareIds
-        }),
-        t.compareIds.length > 0 ? e(ComparePanel, {
-          candidates: t.candidates,
-          compareIds: t.compareIds
-        }) : null,
-        e('div', { style: { marginTop: 8, marginBottom: 6, display: 'flex', gap: 4 } },
-          e('button', {
+        // Top: Results
+        e('div', {
+          style: {
+            border: '1px solid var(--kt-widget-border-default)',
+            borderRadius: 3, background: 'var(--kt-sidebar-bg)',
+            padding: 10, overflow: 'hidden', flex: '0 0 auto'
+          }
+        },
+          e('div', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.7, marginBottom: 6 } },
+            'Results (' + t.results.length + ')'),
+          e(ResultsTable, { results: t.results, selectedIdx: t.selectedResultIdx }),
+          t.results.length > 0 ? e('button', {
             type: 'button', className: 'kt-btn small',
-            onClick: function () { K.table.clearCompare(); },
-            disabled: t.compareIds.length === 0
-          }, 'Clear Compare (' + t.compareIds.length + ')'),
-          e('button', {
-            type: 'button', className: 'kt-btn small',
-            onClick: function () {
-              var inp = document.getElementById('kt-input-table');
-              if (inp) inp.click();
-            }
-          }, 'Load .tbl to Compare')
+            style: { marginTop: 6 },
+            onClick: function () { K.table.clearResults(); }
+          }, 'Clear Results') : null
         ),
-        e('div', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.7, marginBottom: 6 } },
-          'Preview'),
-        e('input', {
-          type: 'text',
-          className: 'kt-input',
-          placeholder: 'Filter characters...',
-          value: t.previewFilter,
-          onChange: function (ev) { K.table.setPreviewFilter(ev.target.value); },
-          style: { marginBottom: 6, fontSize: 11 }
-        }),
-        e(FullPreview, { candidate: selectedCandidate, filter: t.previewFilter }),
-        e('button', {
-          type: 'button',
-          className: 'kt-btn',
-          style: { marginTop: 8, width: '100%' },
-          onClick: function () { K.table.applySelectedToEditTable(); },
-          disabled: !selectedCandidate
-        }, 'Apply .tbl to Edit Panel')
+
+        // Bottom: Preview + Compare
+        e('div', {
+          style: {
+            border: '1px solid var(--kt-widget-border-default)',
+            borderRadius: 3, background: 'var(--kt-sidebar-bg)',
+            padding: 10, overflow: 'auto', flex: '1 1 auto', minHeight: 0
+          }
+        },
+          e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
+            e('div', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.7 } },
+              'Preview .tbl' + (t.compareFileName ? ' (vs ' + t.compareFileName + ')' : '')),
+            e('div', { style: { display: 'flex', gap: 4 } },
+              e('button', { type: 'button', className: 'kt-btn small', onClick: onLoadCompare }, 'Load .tbl to Compare'),
+              t.compareFileName ? e('button', {
+                type: 'button', className: 'kt-btn small btn-danger',
+                onClick: function () { K.table.clearCompare(); }
+              }, 'Clear Compare') : null
+            )
+          ),
+          e(PreviewTbl, { content: t.previewTbl }),
+          t.compareFileName ? e(CompareView, {
+            fileContent: t.compareTbl,
+            previewContent: t.previewTbl
+          }) : null,
+          t.previewTbl ? e('button', {
+            type: 'button', className: 'kt-btn',
+            style: { marginTop: 8, width: '100%' },
+            onClick: onApplyPreview
+          }, 'Apply .tbl to Edit Panel') : null
+        )
       ),
 
-      // RIGHT: edit table + apply for rom
+      // RIGHT column: Edit Table
       e('div', {
         style: {
           display: 'flex', flexDirection: 'column', minHeight: 0,
@@ -444,11 +352,8 @@
         }
       },
         e('div', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.7, marginBottom: 6 } },
-          'Edit Table' + (t.tableSource ? ' -- ' + t.tableSource : '')),
-        e(EditTable, {
-          entries: t.tableEntries,
-          isApplied: t.isApplied
-        })
+          'Edit Table' + (t.editSource ? ' -- ' + t.editSource : '')),
+        e(EditTable, { entries: t.editEntries, isApplied: t.isApplied })
       )
     );
   }
