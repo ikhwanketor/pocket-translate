@@ -13,17 +13,29 @@
    - onDidChange(fn) -> unsubscribe
    ============================================================ */
 
+/* ============================================================
+   Ketor - Command Registry + UI Provider Registry
+   ------------------------------------------------------------
+   Loaded first. Provides:
+   - Ketor.commands.* : command registry (menubar, kebab, buttons)
+   - Ketor.ui.registry : sidebar + tab provider registry
+   - Ketor.ui.registerSidebarProvider(activityId, Component)
+   - Ketor.ui.registerTabProvider(kind, Component)
+   ============================================================ */
+
 (function (global) {
   'use strict';
 
   var Ketor = global.Ketor = global.Ketor || {};
   Ketor.commands = Ketor.commands || {};
+  Ketor.ui = Ketor.ui || {};
 
-  var registry = new Map();
-  var listeners = new Set();
+  // ---- Command registry -------------------------------------------
+  var cmdRegistry = new Map();
+  var cmdListeners = new Set();
 
-  function notify() {
-    listeners.forEach(function (fn) {
+  function cmdNotify() {
+    cmdListeners.forEach(function (fn) {
       try { fn(); } catch (_) { }
     });
   }
@@ -33,39 +45,32 @@
       console.warn('[Ketor.commands] Invalid registration:', id);
       return false;
     }
-    registry.set(id, { id: id, handler: handler, options: options || {} });
-    notify();
+    cmdRegistry.set(id, { id: id, handler: handler, options: options || {} });
+    cmdNotify();
     return true;
   }
 
-  function registerCommands(map) {
-    if (!map || typeof map !== 'object') return;
-    Object.keys(map).forEach(function (id) {
-      registerCommand(id, map[id]);
-    });
-  }
-
   function unregisterCommand(id) {
-    var removed = registry.delete(id);
-    if (removed) notify();
+    var removed = cmdRegistry.delete(id);
+    if (removed) cmdNotify();
     return removed;
   }
 
   function getCommand(id) {
-    return registry.get(id) || null;
+    return cmdRegistry.get(id) || null;
   }
 
   function hasCommand(id) {
-    return registry.has(id);
+    return cmdRegistry.has(id);
   }
 
   function listCommands() {
-    return Array.from(registry.values());
+    return Array.from(cmdRegistry.values());
   }
 
   function executeCommand(id) {
     var args = Array.prototype.slice.call(arguments, 1);
-    var cmd = registry.get(id);
+    var cmd = cmdRegistry.get(id);
     if (!cmd) {
       console.warn('[Ketor.commands] Unknown command:', id);
       return Promise.reject(new Error('Unknown command: ' + id));
@@ -82,17 +87,44 @@
 
   function onDidChange(fn) {
     if (typeof fn !== 'function') return function () { };
-    listeners.add(fn);
-    return function () { listeners.delete(fn); };
+    cmdListeners.add(fn);
+    return function () { cmdListeners.delete(fn); };
   }
 
   Ketor.commands.registerCommand = registerCommand;
-  Ketor.commands.registerCommands = registerCommands;
   Ketor.commands.unregisterCommand = unregisterCommand;
   Ketor.commands.getCommand = getCommand;
   Ketor.commands.hasCommand = hasCommand;
   Ketor.commands.listCommands = listCommands;
   Ketor.commands.executeCommand = executeCommand;
   Ketor.commands.onDidChange = onDidChange;
+
+  // ---- UI provider registry ---------------------------------------
+  // Sidebar providers: registered by activity id (e.g. 'translate')
+  // Tab providers: registered by tab kind (e.g. 'translate')
+  Ketor.ui.registry = Ketor.ui.registry || {
+    sidebars: {},
+    tabs: {}
+  };
+
+  Ketor.ui.registerSidebarProvider = function (activityId, Component) {
+    if (!activityId || typeof Component !== 'function') return false;
+    Ketor.ui.registry.sidebars[String(activityId)] = Component;
+    return true;
+  };
+
+  Ketor.ui.registerTabProvider = function (kind, Component) {
+    if (!kind || typeof Component !== 'function') return false;
+    Ketor.ui.registry.tabs[String(kind)] = Component;
+    return true;
+  };
+
+  Ketor.ui.getSidebarProvider = function (activityId) {
+    return Ketor.ui.registry.sidebars[String(activityId)] || null;
+  };
+
+  Ketor.ui.getTabProvider = function (kind) {
+    return Ketor.ui.registry.tabs[String(kind)] || null;
+  };
 
 })(window);

@@ -37,14 +37,37 @@
   </script>
 
   <div id="root"></div>
+  <input id="kt-input-rom" type="file" style="display:none" />
+  <input id="kt-input-table" type="file" style="display:none" accept=".tbl,.txt" />
+  <input id="kt-input-csv" type="file" style="display:none" accept=".csv" />
 
-  <input type="file" data-ketor-role="rom" style="display:none" />
-  <input type="file" data-ketor-role="table" style="display:none" />
-
-  <!-- Core algorithms -->
+  <script src="./assets/js/core/relative-search.js"></script>
+  <script src="./assets/js/core/table-generator.js"></script>
+  <script src="./assets/js/core/font-detect.js"></script>
+  <script src="./assets/js/core/translator.js"></script>
   <script src="./assets/js/core/rom-loader.js"></script>
 
-  <!-- Workflow modules (register into Ketor.workflows) -->
+  <script src="./assets/js/core.js"></script>
+  <script>
+    window.Ketor = window.Ketor || {};
+    window.Ketor.legacy = {
+      createTextExtractorWorker: createTextExtractorWorker,
+      createRelativeSearchWorker: createRelativeSearchWorker,
+      createTableWorker: createTableWorker,
+      createBuildWorker: createBuildWorker,
+      createTranslationInputWorker: createTranslationInputWorker,
+      smartTextParse: smartTextParse,
+      getSmartByteLength: getSmartByteLength,
+      createTokenizer: createTokenizer,
+      rebuildRom: rebuildRom,
+      applyPatch: applyPatch,
+      exportCSV: exportCSV,
+      parseCSV: parseCSV,
+      aiTranslateText: aiTranslateText,
+      detectSystem: detectSystem
+    };
+  </script>
+
   <script src="./assets/js/workflows/base.js"></script>
   <script src="./assets/js/workflows/nes.js"></script>
   <script src="./assets/js/workflows/gb.js"></script>
@@ -66,7 +89,6 @@
   <script src="./assets/js/workflows/j2me.js"></script>
   <script src="./assets/js/workflows/index.js"></script>
 
-  <!-- UI -->
   <script src="./assets/js/ui/icons.js"></script>
   <script src="./assets/js/ui/ketor-command-registry.js"></script>
   <script src="./assets/js/ui/ketor-menubar.js"></script>
@@ -79,15 +101,18 @@
   <script src="./assets/js/ui/ketor-panel.js"></script>
   <script src="./assets/js/ui/ketor-statusbar.js"></script>
   <script src="./assets/js/ui/ketor-about.js"></script>
+  <script src="./assets/js/ui/ketor-translate-state.js"></script>
+  <script src="./assets/js/ui/ketor-translate-sidebar.js"></script>
+  <script src="./assets/js/ui/ketor-translate-tab.js"></script>
   <script src="./assets/js/ui/ketor-workbench.js"></script>
 
   <script>
     (function () {
       try {
         var R = window.React, RD = window.ReactDOM;
-        if (!R || !RD) { window.__ktShowError('Bootstrap', 'React failed to load.'); return; }
+        if (!R || !RD) { window.__ktShowError('Bootstrap', 'React failed.'); return; }
         if (!window.Ketor || !window.Ketor.ui || !window.Ketor.ui.KetorWorkbench) {
-          window.__ktShowError('Bootstrap', 'Ketor workbench failed to load.');
+          window.__ktShowError('Bootstrap', 'Workbench failed to load.');
           return;
         }
         var root = RD.createRoot(document.getElementById('root'));

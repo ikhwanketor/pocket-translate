@@ -65,6 +65,17 @@
      tab, show sidebar + panel log
    ============================================================ */
 
+/* ============================================================
+   Ketor - Workbench (v7)
+   ------------------------------------------------------------
+   Single file. Full version with all placeholder details.
+   Only additions vs the working v6:
+   - CSV input handler
+   - kind=activityId in tab so providers resolve per activity
+   - translate store wiring after ROM load
+   - input selectors via getElementById (avoids quote issues)
+   ============================================================ */
+
 (function (global) {
   'use strict';
 
@@ -81,44 +92,37 @@
 
   var ACTIVITY_META = {
     translate: {
-      icon: 'globe', title: 'Translation',
+      icon: 'globe',
+      title: 'Translation',
       placeholderTitle: 'Translation Workspace',
       placeholderHint: 'Extract text with a .tbl table, edit translations, auto-relocate overflow.'
     },
     hex: {
-      icon: 'hex', title: 'Hex Editor',
+      icon: 'hex',
+      title: 'Hex Editor',
       placeholderTitle: 'Hex Editor',
       placeholderHint: 'Byte inspector with sections, pointers, categories, and Monkey-Moore relative search.'
     },
     font: {
-      icon: 'paintcan', title: 'Font & Graphics',
+      icon: 'paintcan',
+      title: 'Font & Graphics',
       placeholderTitle: 'Font & Graphics',
       placeholderHint: 'Detect and edit font tiles, palettes, and graphics across supported consoles.'
     },
     patch: {
-      icon: 'package', title: 'Patch & Export',
+      icon: 'package',
+      title: 'Patch & Export',
       placeholderTitle: 'Patch & Export',
       placeholderHint: 'Generate IPS, export ROM, import/export project state.'
     },
     tests: {
-      icon: 'beaker', title: 'Tests',
+      icon: 'beaker',
+      title: 'Tests',
       placeholderTitle: 'Test Suite',
       placeholderHint: 'Unit tests and preview pipeline checks per workflow.'
     }
   };
   Ketor.ui.ACTIVITY_META = ACTIVITY_META;
-
-  var SIDEBAR_PROVIDERS = {};
-  var TAB_PROVIDERS = {};
-
-  Ketor.ui.registerSidebarProvider = function (activityId, Component) {
-    if (typeof Component !== 'function') return;
-    SIDEBAR_PROVIDERS[activityId] = Component;
-  };
-  Ketor.ui.registerTabProvider = function (kind, Component) {
-    if (typeof Component !== 'function') return;
-    TAB_PROVIDERS[kind] = Component;
-  };
 
   function TitleBar(props) {
     return e('header', { className: 'kt-titlebar' },
@@ -164,7 +168,7 @@
 
   function SidebarWrapper(props) {
     var activity = props.activity;
-    var Provider = SIDEBAR_PROVIDERS[activity] || null;
+    var Provider = Ketor.ui.getSidebarProvider(activity);
     var meta = ACTIVITY_META[activity] || {};
 
     var handleResizeStart = useCallback(function (ev) {
@@ -309,19 +313,28 @@
     }
 
     Ketor.commands.registerCommand('ketor.file.loadRom', function () {
-      var input = document.querySelector('input[type="file"][data-ketor-role="rom"]');
+      var input = document.getElementById('kt-input-rom');
       if (input) input.click();
       else logStub('Load ROM');
     });
     Ketor.commands.registerCommand('ketor.file.loadTable', function () {
-      var input = document.querySelector('input[type="file"][data-ketor-role="table"]');
+      var input = document.getElementById('kt-input-table');
       if (input) input.click();
       else logStub('Load Table');
     });
     Ketor.commands.registerCommand('ketor.file.importProject', function () { logStub('Import Project'); });
-    Ketor.commands.registerCommand('ketor.file.exportProject', function () { actions.markClean(); logStub('Export Project'); });
-    Ketor.commands.registerCommand('ketor.file.saveModifiedRom', function () { actions.markClean(); logStub('Save Modified ROM'); });
-    Ketor.commands.registerCommand('ketor.file.exportIps', function () { actions.markClean(); logStub('Export IPS'); });
+    Ketor.commands.registerCommand('ketor.file.exportProject', function () {
+      actions.markClean();
+      logStub('Export Project');
+    });
+    Ketor.commands.registerCommand('ketor.file.saveModifiedRom', function () {
+      actions.markClean();
+      logStub('Save Modified ROM');
+    });
+    Ketor.commands.registerCommand('ketor.file.exportIps', function () {
+      actions.markClean();
+      logStub('Export IPS');
+    });
 
     Ketor.commands.registerCommand('ketor.edit.undo', function () { logStub('Undo'); });
     Ketor.commands.registerCommand('ketor.edit.redo', function () { logStub('Redo'); });
@@ -391,12 +404,7 @@
     var kebabOpen = kebabState[0];
     var setKebabOpen = kebabState[1];
 
-    var romLoadState = useState({ active: false, percent: 0, fileName: '' });
-    var romLoad = romLoadState[0];
-    var setRomLoad = romLoadState[1];
-
     var kebabAnchorRef = useRef(null);
-    var romHandlerRef = useRef(null);
     var actionsRef = useRef(actions);
     var groupsRef = useRef(state.editorGroups);
 
@@ -411,85 +419,100 @@
       });
     }, []);
 
-    // Keep ROM file handler updated with fresh state
+    // ---- ROM input handler ----
     useEffect(function () {
-      romHandlerRef.current = function (file) {
-        var a = actionsRef.current;
-        var groups = groupsRef.current || [];
-        var gid = groups[0] ? groups[0].id : 'group-1';
-
-        setRomLoad({ active: true, percent: 0, fileName: file.name });
-
-        Ketor.core.loadRomFile(file, {
-          onProgress: function (p) {
-            setRomLoad(function (prev) {
-              return { active: true, percent: p, fileName: prev.fileName || file.name };
-            });
-          },
-          onWarning: function (msg) {
-            a.appendLog('warn', msg, 'rom-loader');
-          }
-        }).then(function (result) {
-          setRomLoad({ active: false, percent: 0, fileName: '' });
-
-          var systemName = 'Unknown';
-          var method = 'extension';
-          try {
-            if (Ketor.workflows && typeof Ketor.workflows.detectWorkflow === 'function') {
-              var wf = Ketor.workflows.detectWorkflow(result.data, result.name);
-              if (wf) {
-                systemName = wf.name || 'Unknown';
-                method = 'workflow';
-              }
-            }
-          } catch (e) { }
-
-          var detail = {
-            name: result.name,
-            size: result.size,
-            system: systemName,
-            method: method
-          };
-
-          setRomInfo(detail);
-          a.markDirty();
-
-          window.dispatchEvent(new CustomEvent('ketor:rom-loaded', { detail: detail }));
-
-          var meta = ACTIVITY_META.translate;
-          a.setActiveActivity('translate');
-          a.openTab(gid, {
-            id: 'activity:translate',
-            kind: 'activity',
-            title: meta.title,
-            icon: meta.icon,
-            payload: { activity: 'translate' }
-          });
-          a.setSidebarVisible(true);
-          a.setPanelVisible(true);
-          a.setPanelActiveTab('log');
-
-          var sizeLabel = Ketor.core.formatSize(result.size);
-          var chunked = result.usedChunkedRead ? ' (chunked read)' : '';
-          a.appendLog('success', 'ROM loaded: ' + result.name + ' - ' + sizeLabel + ' - ' + systemName + chunked, 'ketor');
-        }).catch(function (err) {
-          setRomLoad({ active: false, percent: 0, fileName: '' });
-          var msg = (err && err.message) ? err.message : String(err);
-          a.appendLog('error', 'ROM load failed: ' + msg, 'ketor');
-          a.setPanelVisible(true);
-          a.setPanelActiveTab('log');
-        });
-      };
-    }, []);
-
-    // Attach file input listener once
-    useEffect(function () {
-      var input = document.querySelector('input[type="file"][data-ketor-role="rom"]');
+      var input = document.getElementById('kt-input-rom');
       if (!input) return;
       function onChange(ev) {
         var f = ev.target.files && ev.target.files[0];
         ev.target.value = '';
-        if (f && romHandlerRef.current) romHandlerRef.current(f);
+        if (!f) return;
+        var A = actionsRef.current;
+        A.appendLog('info', 'Reading ' + f.name + '...', 'rom-loader');
+        Ketor.core.loadRomFile(f, {
+          onProgress: function (p) {
+            if (p < 1) A.appendLog('info', 'Loading ' + Math.round(p * 100) + '%', 'rom-loader');
+          },
+          onWarning: function (m) { A.appendLog('warn', m, 'rom-loader'); }
+        }).then(function (res) {
+          var sys = 'Unknown';
+          try {
+            if (Ketor.workflows && Ketor.workflows.detectWorkflow) {
+              var wf = Ketor.workflows.detectWorkflow(res.data, res.name);
+              if (wf) sys = wf.name || 'Unknown';
+            }
+          } catch (_) { }
+          setRomInfo({ name: res.name, size: res.size, system: sys });
+          A.markDirty();
+          if (Ketor.translate && Ketor.translate.setRomFromLoad) {
+            Ketor.translate.setRomFromLoad(res, sys);
+          }
+          window.dispatchEvent(new CustomEvent('ketor:rom-loaded', {
+            detail: { name: res.name, size: res.size, system: sys }
+          }));
+          var gid = groupsRef.current[0] ? groupsRef.current[0].id : 'group-1';
+          A.setActiveActivity('translate');
+          A.openTab(gid, {
+            id: 'activity:translate',
+            kind: 'translate',
+            title: 'Translation',
+            icon: 'globe',
+            payload: { activity: 'translate' }
+          });
+          A.setSidebarVisible(true);
+          A.setPanelVisible(true);
+          A.setPanelActiveTab('log');
+          A.appendLog('success',
+            'ROM loaded: ' + res.name + ' (' + Ketor.core.formatSize(res.size) + ', ' + sys + ')',
+            'rom-loader');
+        }).catch(function (err) {
+          var m = err && err.message ? err.message : String(err);
+          A.appendLog('error', 'ROM load failed: ' + m, 'rom-loader');
+          A.setPanelVisible(true);
+          A.setPanelActiveTab('log');
+        });
+      }
+      input.addEventListener('change', onChange);
+      return function () { input.removeEventListener('change', onChange); };
+    }, []);
+
+    // ---- Table input handler ----
+    useEffect(function () {
+      var input = document.getElementById('kt-input-table');
+      if (!input) return;
+      function onChange(ev) {
+        var f = ev.target.files && ev.target.files[0];
+        ev.target.value = '';
+        if (!f) return;
+        f.text().then(function (content) {
+          if (Ketor.translate && Ketor.translate.loadTableContent) {
+            Ketor.translate.loadTableContent(content, f.name);
+          }
+          actionsRef.current.appendLog('success', 'Table: ' + f.name, 'translate');
+        }).catch(function (err) {
+          actionsRef.current.appendLog('error', 'Table failed: ' + (err.message || ''), 'translate');
+        });
+      }
+      input.addEventListener('change', onChange);
+      return function () { input.removeEventListener('change', onChange); };
+    }, []);
+
+    // ---- CSV input handler ----
+    useEffect(function () {
+      var input = document.getElementById('kt-input-csv');
+      if (!input) return;
+      function onChange(ev) {
+        var f = ev.target.files && ev.target.files[0];
+        ev.target.value = '';
+        if (!f) return;
+        f.text().then(function (content) {
+          if (Ketor.translate && Ketor.translate.importCsvContent) {
+            Ketor.translate.importCsvContent(content);
+          }
+          actionsRef.current.appendLog('success', 'CSV: ' + f.name, 'translate');
+        }).catch(function (err) {
+          actionsRef.current.appendLog('error', 'CSV failed: ' + (err.message || ''), 'translate');
+        });
       }
       input.addEventListener('change', onChange);
       return function () { input.removeEventListener('change', onChange); };
@@ -502,10 +525,10 @@
     var handleActivityClick = useCallback(function (activityId) {
       actions.setActiveActivity(activityId);
       var meta = ACTIVITY_META[activityId] || {};
-      var gid = state.editorGroups[0] ? state.editorGroups[0].id : 'group-1';
-      actions.openTab(gid, {
+      var targetGroupId = state.editorGroups[0] ? state.editorGroups[0].id : 'group-1';
+      actions.openTab(targetGroupId, {
         id: 'activity:' + activityId,
-        kind: 'activity',
+        kind: activityId,
         title: meta.title || activityId,
         icon: meta.icon || 'file',
         payload: { activity: activityId }
@@ -519,14 +542,12 @@
     }, [actions]);
 
     var renderTabContent = useCallback(function (tab) {
-      var Provider = TAB_PROVIDERS[tab.kind];
+      var Provider = Ketor.ui.getTabProvider(tab.kind);
       if (Provider) {
         return e(Provider, { tab: tab, payload: tab.payload || {}, workbench: wb });
       }
-      if (tab.kind === 'activity') {
-        return e(ActivityPlaceholder, {
-          activity: (tab.payload && tab.payload.activity) || tab.id.replace('activity:', '')
-        });
+      if (ACTIVITY_META[tab.kind]) {
+        return e(ActivityPlaceholder, { activity: tab.kind });
       }
       return e('div', { className: 'kt-activity-placeholder' },
         e('div', { className: 'ap-title' }, tab.title || 'Empty Tab'),
@@ -546,20 +567,17 @@
       '--kt-sidebar-width': state.sidebarVisible ? (state.sidebarWidth + 'px') : '0px'
     };
 
-    var statusProgress = useMemo(function () {
-      if (romLoad.active) {
-        return {
-          active: true,
-          value: Math.round(romLoad.percent * 100),
-          label: 'Loading ' + (romLoad.fileName || 'ROM')
-        };
-      }
+    var progress = useMemo(function () {
       var running = tasks.filter(function (t) { return t.status === 'running'; });
       if (running.length === 0) return null;
       var first = running[0];
       var suffix = running.length > 1 ? ' (+' + (running.length - 1) + ')' : '';
-      return { active: true, value: first.progress || 0, label: first.label + suffix };
-    }, [tasks, romLoad]);
+      return {
+        active: true,
+        value: first.progress || 0,
+        label: first.label + suffix
+      };
+    }, [tasks]);
 
     var showBackdrop = isCompact && state.sidebarVisible;
     var compactHeaderTitle = 'Ketor';
@@ -632,7 +650,7 @@
       state.statusBarVisible
         ? e(Ketor.ui.KetorStatusBar, {
             romInfo: romInfo,
-            progress: statusProgress,
+            progress: progress,
             encoding: 'UTF-8',
             byteOrder: romInfo ? 'little' : null,
             theme: state.theme,
