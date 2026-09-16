@@ -71,6 +71,17 @@
    Session persistence: only tabs saved when hasUnsavedWork=true.
    ============================================================ */
 
+/* ============================================================
+   Ketor - Workbench Context (v3.2)
+   ------------------------------------------------------------
+   Breakpoint + orientation detection. Returns:
+   - mode: 'desktop' | 'compact'
+     * desktop: width >= 601 and (width > 1024 OR landscape)
+     * compact: mobile any, or tablet portrait
+   - breakpoint: 'mobile' | 'tablet' | 'desktop'
+   - orientation: 'portrait' | 'landscape'
+   ============================================================ */
+
 (function (global) {
   'use strict';
 
@@ -95,24 +106,47 @@
     theme: 'dark-plus'
   };
 
-  // ---- Breakpoint detection ----------------------------------------
-  function getBreakpoint() {
+  // ---- Viewport detection ------------------------------------------
+  function detectViewport() {
     try {
       var w = window.innerWidth || document.documentElement.clientWidth;
-      if (w <= 600) return 'mobile';
-      if (w <= 1024) return 'tablet';
-      return 'desktop';
+      var h = window.innerHeight || document.documentElement.clientHeight;
+      var orientation = (w > h) ? 'landscape' : 'portrait';
+
+      var breakpoint;
+      if (w <= 600) breakpoint = 'mobile';
+      else if (w <= 1024) breakpoint = 'tablet';
+      else breakpoint = 'desktop';
+
+      var mode;
+      if (breakpoint === 'desktop') mode = 'desktop';
+      else if (breakpoint === 'tablet' && orientation === 'landscape') mode = 'desktop';
+      else mode = 'compact';
+
+      return {
+        breakpoint: breakpoint,
+        orientation: orientation,
+        mode: mode,
+        width: w,
+        height: h
+      };
     } catch (err) {
-      return 'desktop';
+      return {
+        breakpoint: 'desktop',
+        orientation: 'landscape',
+        mode: 'desktop',
+        width: 1280,
+        height: 720
+      };
     }
   }
 
-  function useBreakpoint() {
-    var st = React.useState(getBreakpoint);
-    var bp = st[0];
-    var setBp = st[1];
+  function useViewport() {
+    var st = React.useState(detectViewport);
+    var vp = st[0];
+    var setVp = st[1];
     React.useEffect(function () {
-      var handler = function () { setBp(getBreakpoint()); };
+      var handler = function () { setVp(detectViewport()); };
       window.addEventListener('resize', handler);
       window.addEventListener('orientationchange', handler);
       return function () {
@@ -120,7 +154,7 @@
         window.removeEventListener('orientationchange', handler);
       };
     }, []);
-    return bp;
+    return vp;
   }
 
   // ---- Session persistence -----------------------------------------
@@ -159,7 +193,7 @@
     try { global.localStorage.removeItem(SESSION_KEY); } catch (err) { }
   }
 
-  // ---- Context object ----------------------------------------------
+  // ---- Context -----------------------------------------------------
   var WorkbenchContext = React.createContext({
     state: DEFAULT_STATE,
     actions: {},
@@ -167,27 +201,24 @@
     logs: [],
     problems: [],
     hasUnsavedWork: false,
-    breakpoint: 'desktop'
+    viewport: { breakpoint: 'desktop', orientation: 'landscape', mode: 'desktop' }
   });
 
   function newGroupId() {
     return 'group-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
   }
 
-  // ---- Provider ----------------------------------------------------
   function WorkbenchProvider(props) {
-    var bp = useBreakpoint();
+    var vp = useViewport();
     var saved = loadSession() || {};
     var hasSavedWork = saved.hasUnsavedWork === true;
-    var isDesktop = bp === 'desktop';
+    var isDesktop = vp.mode === 'desktop';
 
-    // Sidebar default visibility depends on breakpoint and saved state
     var initialSidebar = isDesktop;
     if (saved && typeof saved.sidebarVisible === 'boolean') {
       initialSidebar = isDesktop ? saved.sidebarVisible : false;
     }
 
-    // ---- State ------------------------------------------------
     var st1 = React.useState(saved.activeActivity || DEFAULT_STATE.activeActivity);
     var activeActivity = st1[0];
     var setActiveActivityRaw = st1[1];
@@ -253,12 +284,10 @@
     var problems = st15[0];
     var setProblems = st15[1];
 
-    // Auto-close sidebar when switching to mobile/tablet
     React.useEffect(function () {
-      if (bp !== 'desktop') setSidebarVisibleRaw(false);
-    }, [bp]);
+      if (vp.mode !== 'desktop') setSidebarVisibleRaw(false);
+    }, [vp.mode]);
 
-    // Persist session (debounced)
     var saveTimerRef = React.useRef(null);
     React.useEffect(function () {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -284,12 +313,10 @@
         panelVisible, panelActiveTab, panelHeight, sidebarWidth, theme,
         editorGroups, activeEditorGroupId, hasUnsavedWork]);
 
-    // Apply theme attribute to <html>
     React.useEffect(function () {
       try { document.documentElement.setAttribute('data-ketor-theme', theme); } catch (err) { }
     }, [theme]);
 
-    // ---- Actions ----------------------------------------------
     var setActiveActivity = React.useCallback(function (id) {
       setActiveActivityRaw(function (prev) {
         if (prev === id && sidebarVisible) {
@@ -360,7 +387,6 @@
       setActiveEditorGroupId(groupId);
     }, []);
 
-    // Move a tab between groups or within a group
     var moveTab = React.useCallback(function (fromId, tabId, toId, toIndex) {
       setEditorGroups(function (groups) {
         var from = null, to = null;
@@ -375,7 +401,6 @@
         }
         if (!tab) return groups;
 
-        // Same group: reorder
         if (fromId === toId) {
           var list = from.tabs.slice();
           var cur = -1;
@@ -393,7 +418,6 @@
           });
         }
 
-        // Cross-group move
         var rem = from.tabs.filter(function (t) { return t.id !== tabId; });
         var nextA = from.activeTabId;
         if (from.activeTabId === tabId) {
@@ -419,7 +443,6 @@
       });
     }, []);
 
-    // Close group: merge its tabs into the first remaining group
     var closeEditorGroup = React.useCallback(function (groupId) {
       setEditorGroups(function (groups) {
         if (groups.length <= 1) return groups;
@@ -461,17 +484,12 @@
     var markDirty = React.useCallback(function () { setHasUnsavedWork(true); }, []);
     var markClean = React.useCallback(function () { setHasUnsavedWork(false); }, []);
 
-    // ---- Task API ---------------------------------------------
     var startTask = React.useCallback(function (task) {
       var id = task.id || ('task-' + Date.now());
       var rec = {
-        id: id,
-        label: task.label || 'Task',
-        detail: task.detail || '',
-        progress: Number(task.progress) || 0,
-        status: 'running',
-        startedAt: Date.now(),
-        finishedAt: null
+        id: id, label: task.label || 'Task', detail: task.detail || '',
+        progress: Number(task.progress) || 0, status: 'running',
+        startedAt: Date.now(), finishedAt: null
       };
       setTasks(function (prev) {
         return [rec].concat(prev.filter(function (t) { return t.id !== id; })).slice(0, 20);
@@ -495,8 +513,7 @@
         return prev.map(function (t) {
           if (t.id !== id) return t;
           return Object.assign({}, t, {
-            status: status || 'done',
-            progress: 100,
+            status: status || 'done', progress: 100,
             detail: detail != null ? detail : t.detail,
             finishedAt: Date.now()
           });
@@ -508,14 +525,11 @@
       setTasks(function (prev) { return prev.filter(function (t) { return t.status === 'running'; }); });
     }, []);
 
-    // ---- Log API ----------------------------------------------
     var appendLog = React.useCallback(function (level, message, source) {
       var entry = {
         id: 'log-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-        level: level || 'info',
-        message: String(message || ''),
-        source: source || 'ketor',
-        timestamp: Date.now()
+        level: level || 'info', message: String(message || ''),
+        source: source || 'ketor', timestamp: Date.now()
       };
       setLogs(function (prev) { return prev.concat([entry]).slice(-500); });
       return entry.id;
@@ -523,7 +537,6 @@
 
     var clearLogs = React.useCallback(function () { setLogs([]); }, []);
 
-    // ---- Problems API -----------------------------------------
     var addProblem = React.useCallback(function (problem) {
       var rec = {
         id: problem.id || ('prob-' + Date.now()),
@@ -552,7 +565,6 @@
       return null;
     }, [editorGroups, activeEditorGroupId]);
 
-    // ---- Memoized state + actions -----------------------------
     var state = React.useMemo(function () {
       return {
         activeActivity: activeActivity,
@@ -619,9 +631,12 @@
         logs: logs,
         problems: problems,
         hasUnsavedWork: hasUnsavedWork,
-        breakpoint: bp
+        viewport: vp,
+        breakpoint: vp.breakpoint,
+        mode: vp.mode,
+        orientation: vp.orientation
       };
-    }, [state, actions, tasks, logs, problems, hasUnsavedWork, bp]);
+    }, [state, actions, tasks, logs, problems, hasUnsavedWork, vp]);
 
     return React.createElement(WorkbenchContext.Provider, { value: value }, props.children);
   }
@@ -633,7 +648,8 @@
   Ketor.ui.WorkbenchContext = WorkbenchContext;
   Ketor.ui.WorkbenchProvider = WorkbenchProvider;
   Ketor.ui.useWorkbench = useWorkbench;
-  Ketor.ui.useBreakpoint = useBreakpoint;
+  Ketor.ui.useViewport = useViewport;
+  Ketor.ui.detectViewport = detectViewport;
   Ketor.ui.clearSessionState = clearSession;
 
 })(window);

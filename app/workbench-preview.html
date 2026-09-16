@@ -3,14 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ketor - Workbench Preview</title>
+  <title>Ketor Workbench Preview</title>
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <link rel="stylesheet" href="./assets/css/vscode-theme.css" />
   <link rel="stylesheet" href="./assets/css/vscode-components.css" />
   <link rel="stylesheet" href="./assets/css/workbench-base.css" />
-  <link rel="stylesheet" href="./assets/css/workbench-desktop.css" />
-  <link rel="stylesheet" href="./assets/css/workbench-tablet.css" />
   <link rel="stylesheet" href="./assets/css/workbench-mobile.css" />
 </head>
 <body>
@@ -24,16 +22,15 @@
           box.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#5a1d1d;color:#f48771;padding:12px;font:12px monospace;z-index:99999;max-height:60vh;overflow:auto;white-space:pre-wrap;border-bottom:2px solid #ff4444;';
           document.body.appendChild(box);
         }
-        box.textContent += '[' + title + ']\n' + detail + '\n\n';
+        box.textContent += '[' + title + '] ' + detail + '\n\n';
       }
       window.addEventListener('error', function (ev) {
-        showError('Error at ' + (ev.filename || '?') + ':' + ev.lineno + ':' + ev.colno,
+        showError('Error ' + (ev.filename || '?') + ':' + ev.lineno + ':' + ev.colno,
           ev.message + '\n' + (ev.error && ev.error.stack ? ev.error.stack : ''));
       });
       window.addEventListener('unhandledrejection', function (ev) {
-        var reason = ev.reason;
-        showError('Unhandled Rejection',
-          (reason && reason.stack) ? reason.stack : String(reason));
+        var r = ev.reason;
+        showError('Rejection', (r && r.stack) ? r.stack : String(r));
       });
       window.__ktShowError = showError;
     })();
@@ -47,6 +44,7 @@
   <script src="./assets/js/ui/icons.js"></script>
   <script src="./assets/js/ui/ketor-command-registry.js"></script>
   <script src="./assets/js/ui/ketor-menubar.js"></script>
+  <script src="./assets/js/ui/ketor-kebab-menu.js"></script>
   <script src="./assets/js/ui/ketor-activitybar.js"></script>
   <script src="./assets/js/ui/ketor-sidebar.js"></script>
   <script src="./assets/js/ui/ketor-context.js"></script>
@@ -60,19 +58,14 @@
   <script>
     (function () {
       try {
-        var React = window.React;
-        var ReactDOM = window.ReactDOM;
-        if (!React || !ReactDOM) {
-          window.__ktShowError('Bootstrap', 'React failed to load.');
-          return;
-        }
+        var R = window.React, RD = window.ReactDOM;
+        if (!R || !RD) { window.__ktShowError('Bootstrap', 'React failed to load.'); return; }
         if (!window.Ketor || !window.Ketor.ui || !window.Ketor.ui.KetorWorkbench) {
-          window.__ktShowError('Bootstrap',
-            'Ketor workbench failed to load. Check that all script files are reachable.');
+          window.__ktShowError('Bootstrap', 'Ketor workbench failed to load.');
           return;
         }
-        var root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(React.createElement(window.Ketor.ui.KetorWorkbench, null));
+        var root = RD.createRoot(document.getElementById('root'));
+        root.render(R.createElement(window.Ketor.ui.KetorWorkbench, null));
       } catch (err) {
         window.__ktShowError('Bootstrap Exception',
           (err && err.stack) ? err.stack : String(err));

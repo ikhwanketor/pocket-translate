@@ -35,6 +35,25 @@
    - 5 themes in picker
    ============================================================ */
 
+/* ============================================================
+   Ketor - Workbench (v4)
+   ------------------------------------------------------------
+   Uses viewport.mode ('desktop' | 'compact') from context.
+   - desktop: titlebar + vertical activity bar (left)
+   - compact: no titlebar, horizontal activity bar (bottom),
+              compact header with kebab menu, sidebar drawer
+   ============================================================ */
+
+/* ============================================================
+   Ketor - Workbench (v5)
+   ------------------------------------------------------------
+   Single-file shell. Same structure as the version that worked
+   before Batch 12g-2b, plus:
+   - compact mode (mobile + tablet portrait)
+   - kebab menu button + dropdown
+   - horizontal activity bar in compact mode
+   ============================================================ */
+
 (function (global) {
   'use strict';
 
@@ -45,53 +64,59 @@
   var e = React.createElement;
   var useState = React.useState;
   var useEffect = React.useEffect;
+  var useRef = React.useRef;
   var useCallback = React.useCallback;
   var useMemo = React.useMemo;
 
+  // ---- Activity metadata ------------------------------------------
   var ACTIVITY_META = {
     translate: {
-      icon: 'globe', title: 'Translation',
+      icon: 'globe',
+      title: 'Translation',
       placeholderTitle: 'Translation Workspace',
       placeholderHint: 'Extract text with a .tbl table, edit translations, auto-relocate overflow.'
     },
     hex: {
-      icon: 'hex', title: 'Hex Editor',
+      icon: 'hex',
+      title: 'Hex Editor',
       placeholderTitle: 'Hex Editor',
       placeholderHint: 'Byte inspector with sections, pointers, categories, and Monkey-Moore relative search.'
     },
     font: {
-      icon: 'paintcan', title: 'Font & Graphics',
+      icon: 'paintcan',
+      title: 'Font & Graphics',
       placeholderTitle: 'Font & Graphics',
       placeholderHint: 'Detect and edit font tiles, palettes, and graphics across supported consoles.'
     },
     patch: {
-      icon: 'package', title: 'Patch & Export',
+      icon: 'package',
+      title: 'Patch & Export',
       placeholderTitle: 'Patch & Export',
       placeholderHint: 'Generate IPS, export ROM, import/export project state.'
     },
     tests: {
-      icon: 'beaker', title: 'Tests',
+      icon: 'beaker',
+      title: 'Tests',
       placeholderTitle: 'Test Suite',
       placeholderHint: 'Unit tests and preview pipeline checks per workflow.'
     }
   };
-
   Ketor.ui.ACTIVITY_META = ACTIVITY_META;
 
+  // ---- Provider registry ------------------------------------------
   var SIDEBAR_PROVIDERS = {};
   var TAB_PROVIDERS = {};
 
-  function registerSidebarProvider(activityId, Component) {
+  Ketor.ui.registerSidebarProvider = function (activityId, Component) {
     if (typeof Component !== 'function') return;
     SIDEBAR_PROVIDERS[activityId] = Component;
-  }
-  function registerTabProvider(kind, Component) {
+  };
+  Ketor.ui.registerTabProvider = function (kind, Component) {
     if (typeof Component !== 'function') return;
     TAB_PROVIDERS[kind] = Component;
-  }
-  Ketor.ui.registerSidebarProvider = registerSidebarProvider;
-  Ketor.ui.registerTabProvider = registerTabProvider;
+  };
 
+  // ---- Title bar (desktop only) -----------------------------------
   function TitleBar(props) {
     return e('header', { className: 'kt-titlebar' },
       e(Ketor.ui.KetorMenubar, {
@@ -107,6 +132,27 @@
     );
   }
 
+  // ---- Compact header with kebab (mobile/tablet portrait) ---------
+  function CompactHeader(props) {
+    return e('div', { className: 'kt-compact-header' },
+      e('div', { className: 'kt-compact-title' }, props.title || 'Ketor'),
+      e('button', {
+        ref: props.anchorRef,
+        type: 'button',
+        className: 'kt-compact-kebab' + (props.kebabOpen ? ' active' : ''),
+        onClick: props.onKebabToggle,
+        'aria-label': 'Menu',
+        'aria-expanded': props.kebabOpen
+      }, Ketor.ui.icon('kebab-vertical', { size: 18 })),
+      e(Ketor.ui.KetorKebabMenu, {
+        open: props.kebabOpen,
+        onClose: props.onCloseKebab,
+        anchorRef: props.anchorRef
+      })
+    );
+  }
+
+  // ---- Activity placeholder ---------------------------------------
   function ActivityPlaceholder(props) {
     var meta = ACTIVITY_META[props.activity] || {};
     return e('div', { className: 'kt-activity-placeholder' },
@@ -115,31 +161,34 @@
     );
   }
 
+  // ---- Sidebar wrapper --------------------------------------------
   function SidebarWrapper(props) {
     var activity = props.activity;
-    var onResize = props.onResize;
     var Provider = SIDEBAR_PROVIDERS[activity] || null;
     var meta = ACTIVITY_META[activity] || {};
 
     var handleResizeStart = useCallback(function (ev) {
-      if (typeof onResize !== 'function') return;
+      if (typeof props.onResize !== 'function') return;
       ev.preventDefault();
-      ev.currentTarget.classList.add('dragging');
+      var handleEl = ev.currentTarget;
+      handleEl.classList.add('dragging');
       var startX = ev.clientX;
       var startWidth = props.width;
 
       var onMove = function (moveEv) {
         var delta = moveEv.clientX - startX;
-        onResize(Math.max(170, Math.min(600, startWidth + delta)));
+        props.onResize(Math.max(170, Math.min(600, startWidth + delta)));
       };
       var onUp = function () {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
-        try { ev.currentTarget.classList.remove('dragging'); } catch (_) { }
+        try { handleEl.classList.remove('dragging'); } catch (_) { }
       };
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
-    }, [onResize, props.width]);
+    }, [props.onResize, props.width]);
+
+    var fallbackText = 'Controls for "' + (meta.title || activity) + '" will appear here.';
 
     return e('div', { className: 'kt-sidebar' },
       Provider
@@ -148,7 +197,7 @@
             e('div', {
               className: 'kt-text-dim kt-text-small',
               style: { padding: '12px 16px', lineHeight: 1.6 }
-            }, 'Controls for "' + (meta.title || activity) + '" will appear here.')
+            }, fallbackText)
           ),
       e('div', {
         className: 'kt-sidebar-resize-handle',
@@ -157,10 +206,20 @@
     );
   }
 
+  // ---- Editor column ----------------------------------------------
   function EditorColumn(props) {
     var state = props.state;
     var actions = props.actions;
     return e('div', { className: 'kt-editor-column' },
+      props.isCompact
+        ? e(CompactHeader, {
+            title: props.compactHeaderTitle,
+            kebabOpen: props.kebabOpen,
+            onKebabToggle: props.onKebabToggle,
+            onCloseKebab: props.onCloseKebab,
+            anchorRef: props.kebabAnchorRef
+          })
+        : null,
       e(Ketor.ui.KetorEditorArea, {
         groups: state.editorGroups,
         activeGroupId: state.activeEditorGroupId,
@@ -187,6 +246,7 @@
     );
   }
 
+  // ---- Theme picker modal -----------------------------------------
   function ThemePickerModal(props) {
     if (!props.open) return null;
     var themes = [
@@ -241,32 +301,38 @@
     );
   }
 
+  // ---- Default command registration -------------------------------
   function registerDefaultCommands(deps) {
     var actions = deps.actions;
     var setAboutOpen = deps.setAboutOpen;
     var setThemeOpen = deps.setThemeOpen;
 
     function logStub(label) {
-      actions.appendLog('info', label + ' -- integration pending in Batch 13.', 'command');
+      actions.appendLog('info', label + ' - pending Batch 13.', 'command');
     }
 
     Ketor.commands.registerCommand('ketor.file.loadRom', function () {
       var input = document.querySelector('input[type="file"][data-ketor-role="rom"]');
-      if (input) input.click(); else logStub('Load ROM');
+      if (input) input.click();
+      else logStub('Load ROM');
     });
     Ketor.commands.registerCommand('ketor.file.loadTable', function () {
       var input = document.querySelector('input[type="file"][data-ketor-role="table"]');
-      if (input) input.click(); else logStub('Load Table');
+      if (input) input.click();
+      else logStub('Load Table');
     });
     Ketor.commands.registerCommand('ketor.file.importProject', function () { logStub('Import Project'); });
     Ketor.commands.registerCommand('ketor.file.exportProject', function () {
-      actions.markClean(); logStub('Export Project');
+      actions.markClean();
+      logStub('Export Project');
     });
     Ketor.commands.registerCommand('ketor.file.saveModifiedRom', function () {
-      actions.markClean(); logStub('Save Modified ROM');
+      actions.markClean();
+      logStub('Save Modified ROM');
     });
     Ketor.commands.registerCommand('ketor.file.exportIps', function () {
-      actions.markClean(); logStub('Export IPS');
+      actions.markClean();
+      logStub('Export IPS');
     });
 
     Ketor.commands.registerCommand('ketor.edit.undo', function () { logStub('Undo'); });
@@ -313,6 +379,7 @@
     Ketor.commands.registerCommand('ketor.settings.advanced', function () { logStub('Advanced Options'); });
   }
 
+  // ---- Main shell --------------------------------------------------
   function WorkbenchShell() {
     var wb = Ketor.ui.useWorkbench();
     var state = wb.state;
@@ -320,11 +387,26 @@
     var tasks = wb.tasks;
     var logs = wb.logs;
     var problems = wb.problems;
-    var bp = wb.breakpoint;
+    var vp = wb.viewport;
+    var isCompact = vp.mode === 'compact';
 
-    var [aboutOpen, setAboutOpen] = useState(false);
-    var [themeOpen, setThemeOpen] = useState(false);
-    var [romInfo, setRomInfo] = useState(null);
+    var aboutState = useState(false);
+    var aboutOpen = aboutState[0];
+    var setAboutOpen = aboutState[1];
+
+    var themeState = useState(false);
+    var themeOpen = themeState[0];
+    var setThemeOpen = themeState[1];
+
+    var romState = useState(null);
+    var romInfo = romState[0];
+    var setRomInfo = romState[1];
+
+    var kebabState = useState(false);
+    var kebabOpen = kebabState[0];
+    var setKebabOpen = kebabState[1];
+
+    var kebabAnchorRef = useRef(null);
 
     useEffect(function () {
       registerDefaultCommands({
@@ -347,7 +429,10 @@
       return function () { window.removeEventListener('ketor:rom-loaded', onRomLoaded); };
     }, [actions]);
 
-    // FIX: open tab when clicking activity icon
+    useEffect(function () {
+      if (!isCompact && kebabOpen) setKebabOpen(false);
+    }, [isCompact, kebabOpen]);
+
     var handleActivityClick = useCallback(function (activityId) {
       actions.setActiveActivity(activityId);
       var meta = ACTIVITY_META[activityId] || {};
@@ -387,10 +472,9 @@
     if (!state.activityBarVisible) rootClasses.push('no-activitybar');
     if (!state.sidebarVisible) rootClasses.push('no-sidebar');
     if (!state.statusBarVisible) rootClasses.push('no-statusbar');
-
-    // Drawer state class per breakpoint
-    if (bp === 'mobile' && state.sidebarVisible) rootClasses.push('mobile-sidebar-open');
-    if (bp === 'tablet' && state.sidebarVisible) rootClasses.push('tablet-sidebar-open');
+    rootClasses.push(isCompact ? 'mode-compact' : 'mode-desktop');
+    rootClasses.push('orientation-' + vp.orientation);
+    if (state.sidebarVisible && isCompact) rootClasses.push('drawer-open');
 
     var rootStyle = {
       '--kt-sidebar-width': state.sidebarVisible ? (state.sidebarWidth + 'px') : '0px'
@@ -400,23 +484,33 @@
       var running = tasks.filter(function (t) { return t.status === 'running'; });
       if (running.length === 0) return null;
       var first = running[0];
+      var suffix = running.length > 1 ? ' (+' + (running.length - 1) + ')' : '';
       return {
         active: true,
         value: first.progress || 0,
-        label: first.label + (running.length > 1 ? ' (+' + (running.length - 1) + ')' : '')
+        label: first.label + suffix
       };
     }, [tasks]);
 
-    // Drawer backdrop (mobile/tablet only, when sidebar visible)
-    var showBackdrop = (bp === 'mobile' || bp === 'tablet') && state.sidebarVisible;
+    var showBackdrop = isCompact && state.sidebarVisible;
+    var compactHeaderTitle = (ACTIVITY_META[state.activeActivity] || {}).title || 'Ketor';
 
-    return e('div', { className: rootClasses.join(' '), style: rootStyle },
-      e(TitleBar, {
-        activityBarVisible: state.activityBarVisible,
-        sidebarVisible: state.sidebarVisible,
-        statusBarVisible: state.statusBarVisible,
-        panelVisible: state.panelVisible
-      }),
+    return e('div', {
+      className: rootClasses.join(' '),
+      style: rootStyle,
+      'data-mode': vp.mode,
+      'data-orientation': vp.orientation,
+      'data-breakpoint': vp.breakpoint
+    },
+      !isCompact
+        ? e(TitleBar, {
+            activityBarVisible: state.activityBarVisible,
+            sidebarVisible: state.sidebarVisible,
+            statusBarVisible: state.statusBarVisible,
+            panelVisible: state.panelVisible
+          })
+        : null,
+
       state.activityBarVisible
         ? e(Ketor.ui.KetorActivityBar, {
             items: Ketor.ui.DEFAULT_ACTIVITY_ITEMS,
@@ -430,9 +524,11 @@
               } else if (id === 'account') {
                 setAboutOpen(true);
               }
-            }
+            },
+            orientation: isCompact ? 'horizontal' : 'vertical'
           })
         : null,
+
       state.sidebarVisible
         ? e(SidebarWrapper, {
             activity: state.activeActivity,
@@ -440,12 +536,14 @@
             onResize: actions.setSidebarWidth
           })
         : null,
+
       showBackdrop
         ? e('div', {
             className: 'kt-sidebar-backdrop',
             onClick: function () { actions.closeDrawer(); }
           })
         : null,
+
       e(EditorColumn, {
         state: state,
         actions: actions,
@@ -453,8 +551,15 @@
         tasks: tasks,
         logs: logs,
         problems: problems,
-        onWelcomeAction: handleWelcomeAction
+        onWelcomeAction: handleWelcomeAction,
+        isCompact: isCompact,
+        compactHeaderTitle: compactHeaderTitle,
+        kebabOpen: kebabOpen,
+        onKebabToggle: function () { setKebabOpen(function (v) { return !v; }); },
+        onCloseKebab: function () { setKebabOpen(false); },
+        kebabAnchorRef: kebabAnchorRef
       }),
+
       state.statusBarVisible
         ? e(Ketor.ui.KetorStatusBar, {
             romInfo: romInfo,
@@ -466,10 +571,12 @@
             onThemeClick: function () { setThemeOpen(true); }
           })
         : null,
+
       e(Ketor.ui.KetorAboutModal, {
         open: aboutOpen,
         onClose: function () { setAboutOpen(false); }
       }),
+
       e(ThemePickerModal, {
         open: themeOpen,
         onClose: function () { setThemeOpen(false); },

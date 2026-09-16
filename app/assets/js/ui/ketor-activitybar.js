@@ -15,12 +15,19 @@
    - onBottomActivate: (id) => void (optional)
    ============================================================ */
 
+/* ============================================================
+   Ketor - Activity Bar
+   ------------------------------------------------------------
+   Vertical (default, desktop/tablet landscape) or horizontal
+   (compact mode, bottom tab bar). Same items, different
+   layout. Parent passes orientation prop.
+   ============================================================ */
+
 (function (global) {
   'use strict';
 
   var Ketor = global.Ketor = global.Ketor || {};
   Ketor.ui = Ketor.ui || {};
-
   var React = global.React;
   if (!React) return;
   var e = React.createElement;
@@ -36,7 +43,7 @@
       'aria-pressed': isActive,
       onClick: function () { props.onActivate(item.id); }
     },
-      Ketor.ui.icon(item.icon, { size: 24 }),
+      Ketor.ui.icon(item.icon, { size: 22 }),
       item.badge != null && item.badge !== 0
         ? e('span', { className: 'badge' }, String(item.badge).slice(0, 3))
         : null
@@ -49,42 +56,40 @@
     var activeId = props.activeId;
     var onActivate = props.onActivate || function () { };
     var onBottomActivate = props.onBottomActivate || function () { };
+    var orientation = props.orientation === 'horizontal' ? 'horizontal' : 'vertical';
+
+    var className = 'kt-activitybar kt-activitybar-' + orientation;
+
+    var renderItem = function (item) {
+      return e(ActivityItem, {
+        key: item.id,
+        item: item,
+        activeId: activeId,
+        onActivate: (bottomItems.indexOf(item) !== -1) ? onBottomActivate : onActivate
+      });
+    };
 
     return e('nav', {
-      className: 'kt-activitybar',
+      className: className,
       role: 'navigation',
-      'aria-label': 'Activity Bar'
+      'aria-label': 'Activity Bar',
+      'data-orientation': orientation
     },
-      items.map(function (item) {
-        return e(ActivityItem, {
-          key: item.id,
-          item: item,
-          activeId: activeId,
-          onActivate: onActivate
-        });
-      }),
+      items.map(renderItem),
       bottomItems.length > 0
         ? e('div', { className: 'kt-activitybar-bottom' },
-            bottomItems.map(function (item) {
-              return e(ActivityItem, {
-                key: item.id,
-                item: item,
-                activeId: activeId,
-                onActivate: onBottomActivate
-              });
-            })
+            bottomItems.map(renderItem)
           )
         : null
     );
   }
 
-  // Default activity bar items for Ketor
   Ketor.ui.DEFAULT_ACTIVITY_ITEMS = [
-    { id: 'translate', icon: 'globe', tooltip: 'Translate (ROM text + table)' },
-    { id: 'hex', icon: 'file-binary', tooltip: 'Hex Editor (bytes + pointers)' },
-    { id: 'font', icon: 'paintcan', tooltip: 'Font & Graphics (tiles + palette)' },
-    { id: 'patch', icon: 'package', tooltip: 'Patch & Export (IPS, ROM)' },
-    { id: 'tests', icon: 'beaker', tooltip: 'Tests (unit + pipeline)' }
+    { id: 'translate', icon: 'globe', tooltip: 'Translate' },
+    { id: 'hex', icon: 'hex', tooltip: 'Hex Editor' },
+    { id: 'font', icon: 'paintcan', tooltip: 'Font & Graphics' },
+    { id: 'patch', icon: 'package', tooltip: 'Patch & Export' },
+    { id: 'tests', icon: 'beaker', tooltip: 'Tests' }
   ];
 
   Ketor.ui.DEFAULT_ACTIVITY_BOTTOM = [
