@@ -153,15 +153,15 @@
       placeholderTitle: 'Search Text',
       placeholderHint: 'Extract texts, search in-game strings, and assign them to groups. Coming in the next batch.'
     },
-    translation: {
-      icon: 'globe', title: 'Translation',
-      placeholderTitle: 'Translation Workspace',
-      placeholderHint: 'Extract text with a .tbl table, edit translations, auto-relocate overflow.'
-    },
     hex: {
       icon: 'hex', title: 'Hex Editor',
       placeholderTitle: 'Hex Editor',
       placeholderHint: 'Byte inspector with sections, pointers, categories, and Monkey-Moore relative search.'
+    },
+    translation: {
+      icon: 'globe', title: 'Translation',
+      placeholderTitle: 'Translation Workspace',
+      placeholderHint: 'Extract text with a .tbl table, edit translations, auto-relocate overflow.'
     },
     tile: {
       icon: 'paintcan', title: 'Tile Editor',
