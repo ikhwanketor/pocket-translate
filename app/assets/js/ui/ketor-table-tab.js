@@ -17,6 +17,29 @@
 
 /* Ketor - Table Tab v4 (KtBox collapsible + merged preview/compare) */
 
+/* ============================================================
+   Ketor - Table Activity Editor Tab (v5)
+   ------------------------------------------------------------
+   Left top:  Results (Offset | Values | Preview-in-game)
+   Left bot:  Preview (generated = editable, loaded = read-only)
+   Right:     Edit Table + Apply for ROM
+   ============================================================ */
+
+/* ============================================================
+   Ketor - Table Activity Editor Tab (v6)
+   ------------------------------------------------------------
+   Adds Smart Guess + Reset Smart Guess buttons in Results
+   header. Re-run shows confirmation before overwriting preview.
+   ============================================================ */
+
+/* ============================================================
+   Ketor - Table Activity Editor Tab (v7)
+   ------------------------------------------------------------
+   Adds "Adopt Labels" button in Preview header (visible only
+   when a compare table is loaded). Smart Guess / Reset Smart
+   remain in Results header.
+   ============================================================ */
+
 (function (global) {
   'use strict';
   var K = global.Ketor = global.Ketor || {};
@@ -63,7 +86,6 @@
     };
   }
 
-  // ---- Results table ----
   function ResultsTable(props) {
     var results = props.results;
     var selectedIdx = props.selectedIdx;
@@ -125,13 +147,13 @@
     );
   }
 
-  // ---- Preview + Compare merged ----
   function PreviewBody(props) {
     var previewContent = props.previewContent;
     var compareFileName = props.compareFileName;
     var compareContent = props.compareContent;
+    var onPreviewChange = props.onPreviewChange;
 
-    if (!previewContent) {
+    if (!previewContent && !compareFileName) {
       return e('div', {
         style: {
           padding: 12,
@@ -142,7 +164,7 @@
       }, 'Select a result to see its .tbl preview.');
     }
 
-    var preStyle = {
+    var baseStyle = {
       margin: 0,
       padding: 8,
       background: 'var(--kt-editor-bg)',
@@ -155,11 +177,45 @@
       height: '100%',
       overflow: 'auto',
       whiteSpace: 'pre-wrap',
-      wordBreak: 'break-all'
+      wordBreak: 'break-all',
+      boxSizing: 'border-box'
+    };
+
+    var textareaStyle = Object.assign({}, baseStyle, {
+      width: '100%',
+      resize: 'none',
+      outline: 'none',
+      display: 'block'
+    });
+
+    var renderGenerated = function () {
+      if (typeof onPreviewChange === 'function') {
+        return e('textarea', {
+          value: previewContent || '',
+          onChange: function (ev) { onPreviewChange(ev.target.value); },
+          spellCheck: false,
+          placeholder: 'Edit generated table here (hex=char per line)...',
+          style: textareaStyle
+        });
+      }
+      return e('pre', { style: baseStyle }, previewContent || '');
     };
 
     if (!compareFileName) {
-      return e('pre', { style: preStyle }, previewContent);
+      return e('div', {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          height: '100%',
+          gap: 4
+        }
+      },
+        typeof onPreviewChange === 'function'
+          ? e('div', { style: { fontSize: 10, color: '#3794ff', flex: '0 0 auto' } }, 'Generated (editable)')
+          : null,
+        e('div', { style: { flex: '1 1 auto', minHeight: 0 } }, renderGenerated())
+      );
     }
 
     return e('div', {
@@ -175,20 +231,19 @@
         style: { display: 'flex', flexDirection: 'column', minHeight: 0 }
       },
         e('div', { style: { fontSize: 10, color: '#3794ff', marginBottom: 4, flex: '0 0 auto' } },
-          'Generated'),
-        e('pre', { style: preStyle }, previewContent)
+          'Generated (editable)'),
+        e('div', { style: { flex: '1 1 auto', minHeight: 0 } }, renderGenerated())
       ),
       e('div', {
         style: { display: 'flex', flexDirection: 'column', minHeight: 0 }
       },
         e('div', { style: { fontSize: 10, color: '#3794ff', marginBottom: 4, flex: '0 0 auto' } },
           'Loaded: ' + compareFileName),
-        e('pre', { style: preStyle }, compareContent || '(empty)')
+        e('pre', { style: baseStyle }, compareContent || '(empty)')
       )
     );
   }
 
-  // ---- Edit table body ----
   function EditTableBody(props) {
     var entries = props.entries;
 
@@ -311,7 +366,6 @@
     );
   }
 
-  // ---- Main tab ----
   function TableTab() {
     var t = K.table.useTable();
 
@@ -324,12 +378,34 @@
       K.table.clearCompare();
     }, []);
 
+    var onAdoptLabels = uC(function () {
+      K.table.adoptLabelsFromCompare();
+    }, []);
+
     var onApplyPreview = uC(function () {
       K.table.applyPreviewToEditTable();
     }, []);
 
     var onApplyForRom = uC(function () {
       K.table.applyForRom();
+    }, []);
+
+    var onPreviewChange = uC(function (value) {
+      K.table.setPreviewTbl(value);
+    }, []);
+
+    var onRunSmartGuess = uC(function () {
+      if (t.previewTbl && t.smartGuessActive) {
+        var ok = global.confirm(
+          'Re-run will overwrite the current preview, including any manual edits. Continue?'
+        );
+        if (!ok) return;
+      }
+      K.table.runSmartGuess();
+    }, [t.previewTbl, t.smartGuessActive]);
+
+    var onResetSmartGuess = uC(function () {
+      K.table.resetSmartGuess();
     }, []);
 
     if (!t.romBytes) {
@@ -339,15 +415,49 @@
       );
     }
 
-    var previewActions = [
-      e('button', {
-        key: 'load-compare',
+    var resultsActions = [];
+    if (t.results.length > 0) {
+      resultsActions.push(e('button', {
+        key: 'smart',
         type: 'button',
         className: 'kt-btn small',
-        onClick: onLoadCompare
-      }, 'Load .tbl to Compare')
-    ];
+        onClick: onRunSmartGuess,
+        title: 'Detect control codes ([LINE], [END]) from text flow'
+      }, 'Smart Guess'));
+      if (t.smartGuessActive) {
+        resultsActions.push(e('button', {
+          key: 'reset-smart',
+          type: 'button',
+          className: 'kt-btn small',
+          onClick: onResetSmartGuess,
+          title: 'Reset control code labels to unknown'
+        }, 'Reset Smart'));
+      }
+      resultsActions.push(e('button', {
+        key: 'clear',
+        type: 'button',
+        className: 'kt-btn small',
+        onClick: function () { K.table.clearResults(); }
+      }, 'Clear'));
+    }
+
+    var previewActions = [];
+    previewActions.push(e('button', {
+      key: 'load-compare',
+      type: 'button',
+      className: 'kt-btn small',
+      onClick: onLoadCompare
+    }, 'Load .tbl to Compare'));
+
     if (t.compareFileName) {
+      previewActions.push(e('button', {
+        key: 'adopt-labels',
+        type: 'button',
+        className: 'kt-btn small',
+        onClick: onAdoptLabels,
+        disabled: !t.previewTbl,
+        title: 'Copy labels from loaded table to generated preview'
+      }, 'Adopt Labels'));
       previewActions.push(e('button', {
         key: 'clear-compare',
         type: 'button',
@@ -368,7 +478,6 @@
         padding: 12
       }
     },
-      // ---- LEFT column ----
       e('div', {
         style: {
           display: 'grid',
@@ -381,14 +490,7 @@
         e(KtBox, {
           id: 'table-results',
           title: 'Results (' + t.results.length + ')',
-          actions: t.results.length > 0 ? [
-            e('button', {
-              key: 'clear',
-              type: 'button',
-              className: 'kt-btn small',
-              onClick: function () { K.table.clearResults(); }
-            }, 'Clear')
-          ] : null,
+          actions: resultsActions.length > 0 ? resultsActions : null,
           bodyStyle: { padding: 0 },
           style: { minHeight: 0 }
         },
@@ -397,9 +499,7 @@
 
         e(KtBox, {
           id: 'table-preview',
-          title: t.compareFileName
-            ? 'Preview (compare)'
-            : 'Preview',
+          title: t.compareFileName ? 'Preview (compare)' : 'Preview',
           actions: previewActions,
           bodyStyle: { padding: 6 },
           style: { minHeight: 0 }
@@ -417,7 +517,8 @@
               e(PreviewBody, {
                 previewContent: t.previewTbl,
                 compareFileName: t.compareFileName,
-                compareContent: t.compareTbl
+                compareContent: t.compareTbl,
+                onPreviewChange: onPreviewChange
               })
             ),
             t.previewTbl ? e('button', {
@@ -430,7 +531,6 @@
         )
       ),
 
-      // ---- RIGHT column ----
       e('div', {
         style: {
           display: 'grid',

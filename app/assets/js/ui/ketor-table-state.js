@@ -17,6 +17,37 @@
 
 /* Ketor - Table State v4 (multi-sample + wildcard capture) */
 
+/* ============================================================
+   Ketor - Table Activity State (v5)
+   ------------------------------------------------------------
+   Monkey-Moore style search + wildcard capture + editable
+   preview + precise auto-comment for unknown bytes.
+   ============================================================ */
+
+/* ============================================================
+   Ketor - Table Activity State (v6)
+   ------------------------------------------------------------
+   Adds smart guess for control code labels via text-flow
+   analysis. Auto-applied after search, re-run/reset available.
+   ============================================================ */
+
+/* ============================================================
+   Ketor - Table Activity State (v7)
+   ------------------------------------------------------------
+   Adds adopt-labels-from-compare. Control byte comments are
+   now neutral ("control byte, function unknown") since we
+   cannot infer per-game labels without a loaded reference.
+   ============================================================ */
+
+/* ============================================================
+   Ketor - Table Activity State (v12)
+   ------------------------------------------------------------
+   - ruleAssignChar: control bytes -> [UNK_XX] except 09 -> [TAB]
+   - autoComment: enriches comment with control-code hints from
+     Ketor.core.CONTROL_HINTS (toggleable via showControlHints)
+   - adoptLabelsFromCompare: copy labels from loaded reference
+   ============================================================ */
+
 (function (global) {
   'use strict';
   var K = global.Ketor = global.Ketor || {};
@@ -27,7 +58,6 @@
   var uS = R.useState;
   var uE = R.useEffect;
 
-  // ---- Shared UI Kit: KtBox (collapsible box) ----
   function KtBox(props) {
     var id = String(props.id || 'box');
     var st = uS(props.defaultCollapsed === true);
@@ -101,7 +131,6 @@
 
   K.ui.KtBox = KtBox;
 
-  // ---- State ----
   var HISTORY_KEY = 'ketor.table.history';
   var HISTORY_LIMIT = 20;
 
@@ -126,6 +155,9 @@
     editSource: '',
     isApplied: false,
     isSearching: false,
+    smartGuessMap: {},
+    smartGuessActive: false,
+    showControlHints: true,
     status: ''
   };
 
@@ -170,7 +202,6 @@
     _set({ searchHistory: l });
   }
 
-  // ---- TBL parse/generate ----
   function parseTbl(content) {
     var lines = String(content || '').replace(/\r/g, '').split('\n');
     var out = [];
@@ -198,32 +229,94 @@
       if (isEnd && (!ch || ch.trim() === '')) ch = '[END]';
       if (ch.toUpperCase() === '[SPACE]') ch = ' ';
       idx++;
+      var byteVal = parseInt(hex, 16);
       out.push({
         id: 'e' + idx, hex: hex, char: ch,
         bytes: (hex.match(/.{1,2}/g) || []).join(' '),
-        comment: autoComment(ch),
+        comment: autoComment(ch, byteVal),
         isLine: isLine, isEnd: isEnd
       });
     });
     return out;
   }
 
-  function autoComment(ch) {
+  function autoComment(ch, byteVal) {
     var s = String(ch || '');
     var u = s.toUpperCase();
-    if (u === '[LINE]' || u === '[NEWLINE]') return 'line break';
-    if (u === '[END]' || u === '[NULL]') return 'end of text';
+
     if (u === '[SPACE]' || s === ' ') return 'space';
-    if (u === '[START]') return 'start marker';
-    if (u === '[TAB]') return 'tab';
-    if (u.indexOf('[UNK_') === 0) return 'unknown byte - review';
-    if (s.length === 1) {
-      var cp = s.charCodeAt(0);
-      if (cp >= 65 && cp <= 90) return 'uppercase';
-      if (cp >= 97 && cp <= 122) return 'lowercase';
-      if (cp >= 48 && cp <= 57) return 'digit';
-      if ('.,!?:;-/'.indexOf(s) >= 0) return 'punctuation';
+
+    if (u === '[LINE]' || u === '[NEWLINE]') {
+      if (_state.showControlHints && Number.isFinite(byteVal)) {
+        if (byteVal === 0x0A) return 'line break — ASCII LF (95%)';
+        if (byteVal === 0x0D) return 'line break — ASCII CR (90%)';
+        if (byteVal === 0xFE) return 'page break — custom (80%)';
+        return 'line break — custom byte 0x' + byteVal.toString(16).toUpperCase() + ' (70%)';
+      }
+      return 'line break';
     }
+
+    if (u === '[END]' || u === '[NULL]') {
+      if (_state.showControlHints && Number.isFinite(byteVal)) {
+        if (byteVal === 0x00) return 'end of text — NULL terminator (80%)';
+        if (byteVal === 0x1A) return 'end of file (70%)';
+        if (byteVal === 0xFF) return 'end of text — retro (65%)';
+        if (byteVal === 0x0A || byteVal === 0x0D) return 'end of text — with padding (60%)';
+        return 'end of text';
+      }
+      return 'end of text';
+    }
+
+    if (u === '[START]') return 'start marker';
+
+    if (u === '[TAB]') {
+      if (_state.showControlHints) return 'paragraph / page break (85%)';
+      return 'tab';
+    }
+
+    if (u.indexOf('[UNK_') === 0) {
+      var m = u.match(/^\[UNK_([0-9A-F]{2})\]$/);
+      if (!m) return 'unknown byte';
+      var b = parseInt(m[1], 16);
+      if (!Number.isFinite(b)) return 'unknown byte';
+
+      if (b === 0x09) return 'tab';
+
+      if (b < 0x20) {
+        if (_state.showControlHints && K.core && K.core.CONTROL_HINTS && K.core.CONTROL_HINTS[b]) {
+          return K.core.CONTROL_HINTS[b];
+        }
+        return 'control byte, function unknown';
+      }
+
+      if (b >= 0x20 && b <= 0x7E) {
+        var ascii = String.fromCharCode(b);
+        if (b >= 65 && b <= 90) return 'uppercase letter';
+        if (b >= 97 && b <= 122) return 'lowercase letter';
+        if (b >= 48 && b <= 57) return 'digit';
+        return 'ASCII "' + ascii + '"';
+      }
+
+      return 'extended byte (0x' + m[1] + ')';
+    }
+
+    if (s.length === 1) return classifyChar(s);
+    return '';
+  }
+
+  function classifyChar(s) {
+    var cp = s.charCodeAt(0);
+    if (cp >= 65 && cp <= 90) return 'uppercase letter';
+    if (cp >= 97 && cp <= 122) return 'lowercase letter';
+    if (cp >= 48 && cp <= 57) return 'digit';
+    if ('.!?'.indexOf(s) >= 0) return 'sentence punctuation';
+    if (',;:'.indexOf(s) >= 0) return 'punctuation';
+    if ('()[]{}<>'.indexOf(s) >= 0) return 'bracket';
+    if ('"\u0027`'.indexOf(s) >= 0) return 'quote';
+    if ('-+*/\\'.indexOf(s) >= 0) return 'math symbol';
+    if ('@#$%&'.indexOf(s) >= 0) return 'special character';
+    if ('=~^|'.indexOf(s) >= 0) return 'operator';
+    if (s === '_') return 'underscore';
     return '';
   }
 
@@ -241,9 +334,13 @@
   function ruleAssignChar(v) {
     var b = v & 0xFF;
     if (b === 0x20) return ' ';
-    if (b === 0x0A || b === 0x0D) return '[LINE]';
-    if (b === 0x00) return '[END]';
     if (b === 0x09) return '[TAB]';
+    if (b >= 0x21 && b <= 0x7E) {
+      if (b === 0x5B || b === 0x5D || b === 0x5C) {
+        return '[UNK_' + b.toString(16).toUpperCase().padStart(2, '0') + ']';
+      }
+      return String.fromCharCode(b);
+    }
     return '[UNK_' + b.toString(16).toUpperCase().padStart(2, '0') + ']';
   }
 
@@ -254,6 +351,7 @@
     var wc = _state.wildcardChar.charCodeAt(0);
     if (!sample || !wc) return [];
     var data = _state.romBytes;
+    if (!data) return [];
     var cap = [];
     var seen = {};
     for (var k = 0; k < sample.length; k++) {
@@ -271,6 +369,7 @@
   function buildPreviewFromResult(result, captured) {
     var lines = [];
     var handled = {};
+
     (captured || []).forEach(function (c) {
       var h = c.value.toString(16).toUpperCase().padStart(2, '0');
       if (handled[h]) return;
@@ -279,6 +378,7 @@
       if (ch === ' ') ch = '[SPACE]';
       lines.push(h + '=' + ch);
     });
+
     var keys = Object.keys(result.values || {});
     keys.sort();
     keys.forEach(function (key) {
@@ -311,6 +411,7 @@
       results: [], selectedResultIdx: -1, previewTbl: '', capturedBytes: [],
       compareFileName: '', compareTbl: '',
       editEntries: [], editSource: '', isApplied: false,
+      smartGuessMap: {}, smartGuessActive: false,
       status: 'ROM ready.'
     });
   }
@@ -327,13 +428,39 @@
   function setEndianness(v) { _set({ endianness: v === 'big' ? 'big' : 'little' }); }
   function setCharset(v) { _set({ charset: String(v || 'ASCII') }); }
   function toggleAdvanced() { _set({ advancedOpen: !_state.advancedOpen }); }
+  function setShowControlHints(v) { _set({ showControlHints: v !== false }); }
+
+  function setPreviewTbl(value) {
+    _set({ previewTbl: String(value == null ? '' : value) });
+  }
+
+  function _runDetection(results) {
+    if (!K.core || typeof K.core.detectControlCodes !== 'function') return {};
+    try {
+      return K.core.detectControlCodes(_state.romBytes, results, {
+        maxResults: 500
+      });
+    } catch (_) { return {}; }
+  }
+
+  function _applyGuess(previewTbl, guessMap) {
+    if (!K.core || typeof K.core.applyGuessToPreview !== 'function') return previewTbl;
+    try {
+      return K.core.applyGuessToPreview(previewTbl, guessMap);
+    } catch (_) { return previewTbl; }
+  }
 
   function runSearch() {
     if (!_state.romBytes) { _set({ status: 'Load ROM first.' }); return; }
     var text = String(_state.sampleText || '');
     var lines = text.split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });
     if (!lines.length) { _set({ status: 'Enter text in-game (one per line).' }); return; }
-    _set({ isSearching: true, status: 'Searching ' + lines.length + ' sample(s)...', results: [], selectedResultIdx: -1, previewTbl: '', capturedBytes: [] });
+    _set({
+      isSearching: true,
+      status: 'Searching ' + lines.length + ' sample(s)...',
+      results: [], selectedResultIdx: -1, previewTbl: '', capturedBytes: [],
+      smartGuessMap: {}, smartGuessActive: false
+    });
     pushHistory(lines.join('\n'));
     setTimeout(function () {
       try {
@@ -359,17 +486,28 @@
         }
         var previewTbl = '';
         var captured = [];
+        var guessMap = {};
+        var guessCount = 0;
         if (all.length > 0) {
           captured = captureWildcardBytes(all[0]);
           previewTbl = buildPreviewFromResult(all[0], captured);
+          guessMap = _runDetection(all);
+          guessCount = Object.keys(guessMap).length;
+          if (guessCount > 0) {
+            previewTbl = _applyGuess(previewTbl, guessMap);
+          }
         }
+        var statusMsg = 'Found ' + all.length + ' result(s) from ' + lines.length + ' sample(s).';
+        if (guessCount > 0) statusMsg += ' Smart guess: ' + guessCount + ' control code(s) detected.';
         _set({
           results: all,
           selectedResultIdx: all.length > 0 ? 0 : -1,
           previewTbl: previewTbl,
           capturedBytes: captured,
+          smartGuessMap: guessMap,
+          smartGuessActive: guessCount > 0,
           isSearching: false,
-          status: 'Found ' + all.length + ' result(s) from ' + lines.length + ' sample(s).'
+          status: statusMsg
         });
       } catch (err) {
         _set({ isSearching: false, status: 'Search failed: ' + (err.message || '') });
@@ -378,7 +516,11 @@
   }
 
   function clearResults() {
-    _set({ results: [], selectedResultIdx: -1, previewTbl: '', capturedBytes: [], status: 'Results cleared.' });
+    _set({
+      results: [], selectedResultIdx: -1, previewTbl: '', capturedBytes: [],
+      smartGuessMap: {}, smartGuessActive: false,
+      status: 'Results cleared.'
+    });
   }
 
   function selectResult(idx) {
@@ -386,10 +528,136 @@
     if (!Number.isFinite(i) || i < 0 || i >= _state.results.length) return;
     var r = _state.results[i];
     var captured = captureWildcardBytes(r);
+    var previewTbl = buildPreviewFromResult(r, captured);
+    if (_state.smartGuessActive && Object.keys(_state.smartGuessMap).length > 0) {
+      previewTbl = _applyGuess(previewTbl, _state.smartGuessMap);
+    }
     _set({
       selectedResultIdx: i,
-      previewTbl: buildPreviewFromResult(r, captured),
+      previewTbl: previewTbl,
       capturedBytes: captured
+    });
+  }
+
+  function runSmartGuess() {
+    if (!_state.romBytes || !_state.results.length) {
+      _set({ status: 'No results to analyze.' });
+      return;
+    }
+    var guessMap = _runDetection(_state.results);
+    var guessCount = Object.keys(guessMap).length;
+    var previewTbl = _state.previewTbl;
+    var selectedIdx = _state.selectedResultIdx;
+    if (selectedIdx >= 0 && selectedIdx < _state.results.length) {
+      var r = _state.results[selectedIdx];
+      var captured = captureWildcardBytes(r);
+      previewTbl = buildPreviewFromResult(r, captured);
+      if (guessCount > 0) previewTbl = _applyGuess(previewTbl, guessMap);
+    }
+    _set({
+      smartGuessMap: guessMap,
+      smartGuessActive: guessCount > 0,
+      previewTbl: previewTbl,
+      status: guessCount > 0
+        ? 'Smart guess applied: ' + guessCount + ' control code(s) detected.'
+        : 'Smart guess: no control codes detected.'
+    });
+  }
+
+  function resetSmartGuess() {
+    var selectedIdx = _state.selectedResultIdx;
+    if (selectedIdx < 0 || selectedIdx >= _state.results.length) {
+      _set({ smartGuessMap: {}, smartGuessActive: false, status: 'Smart guess reset.' });
+      return;
+    }
+    var r = _state.results[selectedIdx];
+    var captured = captureWildcardBytes(r);
+    var previewTbl = buildPreviewFromResult(r, captured);
+    _set({
+      smartGuessMap: {},
+      smartGuessActive: false,
+      previewTbl: previewTbl,
+      status: 'Smart guess reset.'
+    });
+  }
+
+  function adoptLabelsFromCompare() {
+    if (!_state.compareTbl) {
+      _set({ status: 'Load a compare .tbl first.' });
+      return;
+    }
+    if (!_state.previewTbl) {
+      _set({ status: 'No preview to adopt into.' });
+      return;
+    }
+
+    var compareEntries = parseTbl(_state.compareTbl);
+    if (!compareEntries.length) {
+      _set({ status: 'Compare table has no valid entries.' });
+      return;
+    }
+
+    var loadedMap = {};
+    var labelOwner = {};
+    compareEntries.forEach(function (en) {
+      var b = parseInt(en.hex, 16);
+      if (!Number.isFinite(b)) return;
+      if (en.char === ' ' || en.char === '[SPACE]') return;
+      if (loadedMap[b] === undefined) {
+        loadedMap[b] = en.char;
+        if (labelOwner[en.char] === undefined) {
+          labelOwner[en.char] = b;
+        }
+      }
+    });
+
+    var lines = String(_state.previewTbl).split('\n');
+    var adoptedCount = 0;
+    var downgradedCount = 0;
+
+    var newLines = lines.map(function (line) {
+      var trimmed = line.trim();
+      if (!trimmed || trimmed.charAt(0) === '#' || trimmed.charAt(0) === ';') return line;
+
+      var prefix = '';
+      var work = trimmed;
+      if (work.charAt(0) === '*') { prefix = '*'; work = work.substring(1); }
+      else if (work.charAt(0) === '\\') { prefix = '\\'; work = work.substring(1); }
+
+      var eq = work.indexOf('=');
+      if (eq < 0) return line;
+      var hex = work.substring(0, eq).toUpperCase();
+      var ch = work.substring(eq + 1);
+
+      var b = parseInt(hex, 16);
+      if (!Number.isFinite(b)) return line;
+
+      if (loadedMap[b] !== undefined) {
+        adoptedCount++;
+        return prefix + hex + '=' + loadedMap[b];
+      }
+
+      if (ch.charAt(0) === '[' && ch.charAt(ch.length - 1) === ']') {
+        var owner = labelOwner[ch];
+        if (owner !== undefined && owner !== b) {
+          downgradedCount++;
+          return prefix + hex + '=[UNK_' + hex + ']';
+        }
+      }
+
+      return line;
+    });
+
+    var statusMsg = 'Adopted ' + adoptedCount + ' label' + (adoptedCount === 1 ? '' : 's') + ' from compare.';
+    if (downgradedCount > 0) {
+      statusMsg += ' ' + downgradedCount + ' byte' + (downgradedCount === 1 ? '' : 's') + ' downgraded (conflict).';
+    }
+
+    _set({
+      previewTbl: newLines.join('\n'),
+      smartGuessMap: loadedMap,
+      smartGuessActive: false,
+      status: statusMsg
     });
   }
 
@@ -430,7 +698,13 @@
       if (en.id !== id) return en;
       var m = Object.assign({}, en, patch || {});
       if (typeof m.hex === 'string') m.bytes = (m.hex.match(/.{1,2}/g) || []).join(' ');
-      if (patch && patch.char !== undefined && (!patch.comment)) m.comment = autoComment(m.char);
+      var charChanged = patch && patch.char !== undefined;
+      var hexChanged = patch && patch.hex !== undefined;
+      var userComment = patch && patch.comment !== undefined;
+      if ((charChanged || hexChanged) && !userComment) {
+        var b = parseInt(m.hex, 16);
+        m.comment = autoComment(m.char, b);
+      }
       return m;
     });
     _set({ editEntries: next });
@@ -488,7 +762,8 @@
       previewTbl: '', capturedBytes: [],
       compareFileName: '', compareTbl: '',
       editEntries: [], editSource: '', isApplied: false,
-      isSearching: false, status: ''
+      isSearching: false, smartGuessMap: {}, smartGuessActive: false,
+      status: ''
     });
   }
 
@@ -506,13 +781,18 @@
   K.table.setEndianness = setEndianness;
   K.table.setCharset = setCharset;
   K.table.toggleAdvanced = toggleAdvanced;
+  K.table.setShowControlHints = setShowControlHints;
   K.table.runSearch = runSearch;
   K.table.clearResults = clearResults;
   K.table.selectResult = selectResult;
+  K.table.runSmartGuess = runSmartGuess;
+  K.table.resetSmartGuess = resetSmartGuess;
+  K.table.adoptLabelsFromCompare = adoptLabelsFromCompare;
   K.table.loadTableFile = loadTableFile;
   K.table.loadCompareFile = loadCompareFile;
   K.table.clearCompare = clearCompare;
   K.table.applyPreviewToEditTable = applyPreviewToEditTable;
+  K.table.setPreviewTbl = setPreviewTbl;
   K.table.updateEditEntry = updateEditEntry;
   K.table.addEditEntry = addEditEntry;
   K.table.removeEditEntry = removeEditEntry;

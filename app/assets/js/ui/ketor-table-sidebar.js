@@ -10,6 +10,14 @@
 
 /* Ketor - Table Sidebar v4 (multi-sample + editable wildcard) */
 
+/* ============================================================
+   Ketor - Table Activity Sidebar (v5)
+   ------------------------------------------------------------
+   Adds "Show control hints" toggle in Advanced section.
+   Hints are cosmetic comments (e.g. "likely [DELAY] (60%)")
+   shown in Edit Table's Comment column for control bytes.
+   ============================================================ */
+
 (function (global) {
   'use strict';
   var K = global.Ketor = global.Ketor || {};
@@ -23,7 +31,8 @@
     return e('div', { className: 'kt-sidebar-section' },
       e('div', { className: 'kt-sidebar-section-header' }, props.title),
       e('div', { className: 'kt-sidebar-section-body', style: { padding: '6px 12px 12px 12px' } },
-        props.children)
+        props.children
+      )
     );
   }
 
@@ -61,6 +70,10 @@
     var onLoadFile = uC(function () {
       var inp = document.getElementById('kt-input-table');
       if (inp) inp.click();
+    }, []);
+
+    var onToggleHints = uC(function (ev) {
+      K.table.setShowControlHints(ev.target.checked);
     }, []);
 
     var sampleLines = String(t.sampleText || '')
@@ -230,7 +243,22 @@
               e('option', { value: 'little' }, 'Little (LE)'),
               e('option', { value: 'big' }, 'Big (BE)')
             )
-          ) : null
+          ) : null,
+          e('label', {
+            style: {
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 0 2px 0', fontSize: 11,
+              color: 'var(--kt-sidebar-fg)', cursor: 'pointer'
+            },
+            title: 'Show hints about likely control code meanings in the Comment column.'
+          },
+            e('input', {
+              type: 'checkbox',
+              checked: t.showControlHints !== false,
+              onChange: onToggleHints
+            }),
+            'Show control hints'
+          )
         ) : null
       ),
 
